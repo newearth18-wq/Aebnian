@@ -14,6 +14,7 @@ const GameScene = lazy(() => import("./client/scene/GameScene").then((module) =>
 type Screen = "home" | "teacher" | "packs" | "host" | "join" | "play";
 type PlayerSnapshot = { id: string; nickname: string; role: "hider" | "seeker"; x: number; z: number; yaw: number; charges: number; knowledgeScore: number; connected: boolean; camouflageHex: string; isTeacher: boolean };
 type Snapshot = { phase: "lobby" | "active" | "paused" | "finished"; mapId: MapId; durationMinutes: number; remainingSeconds: number; winner: string | null; quizPrompt: { id: string; text: string; options: string[]; closesAt: number; explanation: string | null; active: boolean } | null; players: Record<string, PlayerSnapshot> };
+function isMatchPhase(value: unknown): value is Snapshot["phase"] { return value === "lobby" || value === "active" || value === "paused" || value === "finished"; }
 
 const webglHelpMessage = "อุปกรณ์นี้ไม่รองรับ WebGL 2 จึงเปิดฉาก 3D ไม่ได้ ลองใช้ Chrome, Edge หรือ Safari รุ่นล่าสุด";
 function supportsWebGL2() {
@@ -72,7 +73,19 @@ export default function App() {
 
   useEffect(() => {
     if (!room) return;
-    const receive = (state: any) => setSnapshot(state.toJSON() as Snapshot);
+    const receive = (state: any) => {
+      const next = state?.toJSON?.() as Partial<Snapshot> | undefined;
+      if (!next || !isMatchPhase(next.phase)) return;
+      setSnapshot({
+        phase: next.phase,
+        mapId: next.mapId && next.mapId in MAPS ? next.mapId : "lab",
+        durationMinutes: typeof next.durationMinutes === "number" && Number.isFinite(next.durationMinutes) ? next.durationMinutes : 5,
+        remainingSeconds: typeof next.remainingSeconds === "number" && Number.isFinite(next.remainingSeconds) ? next.remainingSeconds : 300,
+        winner: next.winner ?? null,
+        quizPrompt: next.quizPrompt ?? null,
+        players: next.players ?? {},
+      });
+    };
     room.onStateChange(receive);
     receive(room.state);
     return () => { room.onStateChange.remove(receive); };
@@ -152,6 +165,7 @@ export default function App() {
     {screen === "packs" && <PackStudio session={session} packs={packs} draft={draft} editing={editing} onNew={() => { setDraft(emptyPack()); setEditing(true); setMessage(""); }} onEdit={editPack} onDraft={setDraft} onSave={() => void saveCurrentPack()} onCancel={() => setEditing(false)} onDelete={async (id) => { if (supabase && confirm("ลบชุดคำถามนี้หรือไม่?")) { await deletePack(supabase, id); setPacks(await listPacks(supabase)); } }} onHost={() => { if (!packs.length) { setMessage("สร้างชุดคำถามอย่างน้อยหนึ่งชุดก่อน"); return; } setSelectedPack((current) => packs.some((pack) => pack.id === current) ? current : packs[0].id); setScreen("host"); }} onLogout={async () => { await supabase?.auth.signOut(); setScreen("home"); }} />}
     {screen === "host" && <HostSetup packs={packs} selectedPack={selectedPack} mapId={mapId} duration={duration} setPack={setSelectedPack} setMap={setMapId} setDuration={setDuration} onBack={() => setScreen("packs")} onStart={() => void openRoom()} />}
     {screen === "join" && <JoinForm nickname={nickname} roomCode={roomCode} setNickname={setNickname} setRoomCode={setRoomCode} onBack={() => setScreen("home")} onJoin={() => void joinRoom()} />}
+    {screen === "play" && room && !snapshot && <section className="panel-page"><div className="panel-card"><div className="eyebrow">CONNECTING</div><h2>กำลังเชื่อมต่อห้องเรียน</h2><p>กำลังรอสถานะห้องจากเซิร์ฟเวอร์สักครู่</p></div></section>}
     {screen === "play" && room && snapshot && <GameRoom room={room} state={snapshot} roomCode={roomCode} nickname={nickname || "ผู้สอน"} isTeacher={isTeacher} onLeave={() => void leaveRoom()} />}
     <footer className="site-footer">AEBNIAN <span>•</span> เรียนรู้ไปด้วยกัน เล่นให้ฉลาดกว่าเดิม</footer>
   </main>;
@@ -238,7 +252,7 @@ function GameRoom({ room, state, roomCode, nickname, isTeacher, onLeave }: { roo
         {(question || reveal) && <div className="quiz-overlay"><div className="quiz-overlay-top"><span>✧ {reveal ? "เฉลยคำถาม" : "คำถามพลังพิเศษ"}</span><b>{state.phase === "paused" ? "พักชั่วคราว" : question ? `${Math.max(0, Math.ceil((question.closesAt - Date.now()) / 1000))} วินาที` : "ปิดรับคำตอบ"}</b></div><h3>{question?.text || reveal?.text}</h3><div className="answer-grid">{(question?.options || reveal?.options || []).map((option, i) => <button className={reveal && reveal.correctOption === i ? "answer-correct" : ""} key={i} disabled={!question || state.phase !== "active" || answeredQuestionId === question.id} onClick={() => answer(i)}><span>{String.fromCharCode(65 + i)}</span>{option}{reveal?.correctOption === i ? " ✓" : ""}</button>)}</div>{reveal?.explanation && <p className="answer-explanation">{reveal.explanation}</p>}{feedback && <small>{feedback}</small>}</div>}
       </div>
       <aside className="game-side">
-        <div className="side-card player-card"><div className="side-card-title"><div><div className="eyebrow">PLAYERS</div><h3>ผู้เล่นในห้อง</h3></div><span className="count-pill">{students.length} / 50</span></div><div className="player-list">{players.map((p, i) => <div className="player-row" key={p.id}><span className={`player-avatar pa-${i % 5}`}>{p.nickname.slice(0, 1).toUpperCase()}</span><div><b>{p.nickname}</b><small>{p.isTeacher ? "ครูผู้ดูแล" : p.id === ownId ? (p.role === "seeker" ? "ผู้หา" : "ผู้ซ่อน") : Number.isFinite(p.x) ? (p.role === "seeker" ? "ผู้หา" : "เห็นใกล้ตัว") : "ซ่อนอยู่"}{p.id === ownId ? " · คุณ" : ""}</small></div><span className={p.connected ? "connection live" : "connection"}/></div>)}</div></div>
+        <div className="side-card player-card"><div className="side-card-title"><div><div className="eyebrow">PLAYERS</div><h3>ผู้เล่นในห้อง</h3></div><span className="count-pill">{students.length} / 50</span></div><div className="player-list">{players.map((p, i) => <div className="player-row" key={p.id}><span className={`player-avatar pa-${i % 5}`}>{String(p.nickname ?? "?").slice(0, 1).toUpperCase()}</span><div><b>{p.nickname || "ผู้เล่น"}</b><small>{p.isTeacher ? "ครูผู้ดูแล" : p.id === ownId ? (p.role === "seeker" ? "ผู้หา" : "ผู้ซ่อน") : Number.isFinite(p.x) ? (p.role === "seeker" ? "ผู้หา" : "เห็นใกล้ตัว") : "ซ่อนอยู่"}{p.id === ownId ? " · คุณ" : ""}</small></div><span className={p.connected ? "connection live" : "connection"}/></div>)}</div></div>
         {!isTeacher && <div className="side-card ability-card"><div className="eyebrow">SPECIAL ABILITIES</div><h3>พลังของคุณ <span>⚡ {myPlayer?.charges ?? 0}</span></h3><p>ตอบคำถามให้ถูกเพื่อสะสมพลัง แล้วใช้ช่วยทีมของคุณ</p><div className="ability-buttons"><button disabled={!myPlayer?.charges || myPlayer.role !== "hider"} onClick={() => room.send(ClientMessage.useAbility, { ability: "decoy" })}><span>◌</span><b>ตัวลวง</b><small>ผู้ซ่อน · 1 พลัง</small></button><button disabled={!myPlayer?.charges || myPlayer.role !== "seeker"} onClick={() => room.send(ClientMessage.useAbility, { ability: "scan" })}><span>⌖</span><b>สแกนใกล้ตัว</b><small>ผู้หา · 1 พลัง</small></button></div></div>}
         {!isTeacher && myPlayer?.role === "hider" && <div className="side-card camouflage-card"><label htmlFor="camouflage-color"><span><b>สีพรางตัว</b><small>เลือกสีให้กลมกลืนกับสนาม</small></span><input id="camouflage-color" type="color" value={camouflage} onChange={(event) => { setCamouflage(event.target.value); room.send(ClientMessage.setCamouflage, { color: event.target.value }); }}/></label></div>}
         {isTeacher && state.phase === "lobby" && <button className="primary-button full" disabled={connectedStudents.length < 3} onClick={() => room.send(ClientMessage.hostStart)}>{connectedStudents.length < 3 ? `รอนักเรียนอย่างน้อย 3 คน (${connectedStudents.length}/3)` : "เริ่มเกม →"}</button>}

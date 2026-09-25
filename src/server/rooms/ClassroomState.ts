@@ -1,19 +1,27 @@
 import { ArraySchema, MapSchema, Schema, defineTypes } from "@colyseus/schema";
 
 export class PlayerState extends Schema {
-  id = "";
-  nickname = "";
-  role = "hider";
+  declare id: string;
+  declare nickname: string;
+  declare role: string;
   // Coordinates are private view fields. NaN makes an unseen player's
   // uninitialized pose easy for clients to distinguish from a real position.
-  x = Number.NaN;
-  z = Number.NaN;
-  yaw = Number.NaN;
-  camouflageHex = "#a8c98b";
-  charges = 0;
-  knowledgeScore = 0;
-  connected = true;
-  isTeacher = false;
+  declare x: number;
+  declare z: number;
+  declare yaw: number;
+  declare camouflageHex: string;
+  declare charges: number;
+  declare knowledgeScore: number;
+  declare connected: boolean;
+  declare isTeacher: boolean;
+
+  constructor() {
+    super();
+    this.id = ""; this.nickname = ""; this.role = "hider";
+    this.x = Number.NaN; this.z = Number.NaN; this.yaw = Number.NaN;
+    this.camouflageHex = "#a8c98b"; this.charges = 0; this.knowledgeScore = 0;
+    this.connected = true; this.isTeacher = false;
+  }
 }
 defineTypes(PlayerState, {
   id: "string", nickname: "string", role: { type: "string", view: true },
@@ -22,25 +30,39 @@ defineTypes(PlayerState, {
 });
 
 export class QuizPromptState extends Schema {
-  active = false;
-  id = "";
-  text = "";
-  options = new ArraySchema<string>();
-  explanation = "";
-  closesAt = 0;
-  correctOption = -1;
+  declare active: boolean;
+  declare id: string;
+  declare text: string;
+  declare options: ArraySchema<string>;
+  declare explanation: string;
+  declare closesAt: number;
+  declare correctOption: number;
+
+  constructor() {
+    super();
+    this.active = false; this.id = ""; this.text = "";
+    this.options = new ArraySchema<string>(); this.explanation = "";
+    this.closesAt = 0; this.correctOption = -1;
+  }
 }
 defineTypes(QuizPromptState, { active: "boolean", id: "string", text: "string", options: ["string"], explanation: "string", closesAt: "number", correctOption: "int8" });
 
 export class ClassroomState extends Schema {
-  phase = "lobby";
-  mapId = "lab";
-  durationMinutes = 5;
-  remainingSeconds = 300;
-  winner = "";
-  teacherConnected = true;
-  players = new MapSchema<PlayerState>();
-  quizPrompt = new QuizPromptState();
+  declare phase: string;
+  declare mapId: string;
+  declare durationMinutes: number;
+  declare remainingSeconds: number;
+  declare winner: string;
+  declare teacherConnected: boolean;
+  declare players: MapSchema<PlayerState>;
+  declare quizPrompt: QuizPromptState;
+
+  constructor() {
+    super();
+    this.phase = "lobby"; this.mapId = "lab"; this.durationMinutes = 5;
+    this.remainingSeconds = 300; this.winner = ""; this.teacherConnected = true;
+    this.players = new MapSchema<PlayerState>(); this.quizPrompt = new QuizPromptState();
+  }
 }
 defineTypes(ClassroomState, {
   phase: "string", mapId: "string", durationMinutes: "uint8", remainingSeconds: "uint16", winner: "string", teacherConnected: "boolean",
