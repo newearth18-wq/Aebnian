@@ -1,4 +1,4 @@
-export type MapId = "lab" | "library" | "garden";
+export type MapId = "lab" | "library" | "garden" | "house";
 export type PlayerRole = "hider" | "seeker";
 export type MatchPhase = "lobby" | "active" | "paused" | "finished";
 export type MatchWinner = "hiders" | "seekers" | "draw";
@@ -22,6 +22,18 @@ export interface MapDefinition {
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
   obstacles: Array<{ minX: number; maxX: number; minZ: number; maxZ: number }>;
   spawnPoints: PlayerPose[];
+  decorations?: MapDecoration[];
+}
+
+export interface MapDecoration {
+  kind: "wall" | "sofa" | "table" | "bed" | "bookshelf" | "wardrobe" | "counter" | "chair" | "rug" | "plant";
+  x: number;
+  z: number;
+  width: number;
+  depth: number;
+  height: number;
+  color?: string;
+  blocksMovement?: boolean;
 }
 
 export interface PlayerView extends PlayerPose {

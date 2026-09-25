@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import type { MapId, MoveInput } from "../../shared/types";
+import type { MapDecoration, MapId, MoveInput } from "../../shared/types";
 import type { PlayerView } from "../../shared/types";
 import { MAPS } from "../../shared/mapDefinitions";
 
@@ -26,16 +26,19 @@ export function GameScene({ mapId, players, effects = [], myId, phase, onMove }:
     const sun = new THREE.DirectionalLight("#fff5d8", 3); sun.position.set(-14, 24, 15); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); scene.add(sun);
     const map = MAPS[mapId];
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(map.bounds.maxX - map.bounds.minX, map.bounds.maxZ - map.bounds.minZ), new THREE.MeshStandardMaterial({ color: floorColor(mapId), roughness: 0.92 })); floor.rotation.x = -Math.PI / 2; floor.position.set((map.bounds.minX + map.bounds.maxX) / 2, -0.08, (map.bounds.minZ + map.bounds.maxZ) / 2); floor.receiveShadow = true; scene.add(floor);
-    const grid = new THREE.GridHelper(Math.max(map.bounds.maxX - map.bounds.minX, map.bounds.maxZ - map.bounds.minZ), 32, "#758c70", "#344337"); grid.position.y = -0.04; scene.add(grid);
-    const boundary = new THREE.Mesh(new THREE.BoxGeometry(map.bounds.maxX - map.bounds.minX, 0.2, map.bounds.maxZ - map.bounds.minZ), new THREE.MeshBasicMaterial({ color: "#a9c392", wireframe: true, transparent: true, opacity: 0.18 })); boundary.position.set((map.bounds.minX + map.bounds.maxX) / 2, 0.02, (map.bounds.minZ + map.bounds.maxZ) / 2); scene.add(boundary);
-    const props: THREE.Mesh[] = [];
-    map.obstacles.forEach((obstacle, index) => {
-      const width = obstacle.maxX - obstacle.minX; const depth = obstacle.maxZ - obstacle.minZ;
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, 2.2 + (index % 2) * 0.5, depth), new THREE.MeshStandardMaterial({ color: propColor(mapId, index), roughness: 0.8 }));
-      mesh.position.set((obstacle.minX + obstacle.maxX) / 2, mesh.geometry.parameters.height / 2 - 0.05, (obstacle.minZ + obstacle.maxZ) / 2); mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh); props.push(mesh);
-      const top = new THREE.Mesh(new THREE.BoxGeometry(width * 0.92, 0.12, depth * 0.92), new THREE.MeshStandardMaterial({ color: mapId === "library" ? "#be986c" : mapId === "garden" ? "#b0a96f" : "#799b98", roughness: 0.72 })); top.position.set(mesh.position.x, mesh.position.y + 1.1 + (index % 2) * 0.25, mesh.position.z); scene.add(top);
-    });
-    addLandmarks(scene, mapId);
+    if (mapId === "house" && map.decorations) {
+      addHouseDecorations(scene, map.decorations);
+    } else {
+      const grid = new THREE.GridHelper(Math.max(map.bounds.maxX - map.bounds.minX, map.bounds.maxZ - map.bounds.minZ), 32, "#758c70", "#344337"); grid.position.y = -0.04; scene.add(grid);
+      const boundary = new THREE.Mesh(new THREE.BoxGeometry(map.bounds.maxX - map.bounds.minX, 0.2, map.bounds.maxZ - map.bounds.minZ), new THREE.MeshBasicMaterial({ color: "#a9c392", wireframe: true, transparent: true, opacity: 0.18 })); boundary.position.set((map.bounds.minX + map.bounds.maxX) / 2, 0.02, (map.bounds.minZ + map.bounds.maxZ) / 2); scene.add(boundary);
+      map.obstacles.forEach((obstacle, index) => {
+        const width = obstacle.maxX - obstacle.minX; const depth = obstacle.maxZ - obstacle.minZ;
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, 2.2 + (index % 2) * 0.5, depth), new THREE.MeshStandardMaterial({ color: propColor(mapId, index), roughness: 0.8 }));
+        mesh.position.set((obstacle.minX + obstacle.maxX) / 2, mesh.geometry.parameters.height / 2 - 0.05, (obstacle.minZ + obstacle.maxZ) / 2); mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh);
+        const top = new THREE.Mesh(new THREE.BoxGeometry(width * 0.92, 0.12, depth * 0.92), new THREE.MeshStandardMaterial({ color: mapId === "library" ? "#be986c" : mapId === "garden" ? "#b0a96f" : "#799b98", roughness: 0.72 })); top.position.set(mesh.position.x, mesh.position.y + 1.1 + (index % 2) * 0.25, mesh.position.z); scene.add(top);
+      });
+      addLandmarks(scene, mapId);
+    }
 
     const avatars = new Map<string, THREE.Group>();
     const effectMeshes = new Map<string, { group: THREE.Group; ring: THREE.Mesh }>();
@@ -96,8 +99,115 @@ export function GameScene({ mapId, players, effects = [], myId, phase, onMove }:
   return <div className="scene-stage"><canvas className="game-canvas" ref={canvasRef}/><div className="webgl-message"><b>อุปกรณ์นี้ยังไม่รองรับ WebGL 2</b><span>เปิดเกมบน Chrome, Edge หรือ Safari รุ่นล่าสุดเพื่อเล่นฉาก 3D</span></div><div className="touch-stick" aria-label="จอยควบคุมการเดิน"><span/></div><div className="scene-help">WASD / ลูกศรเดิน · เมาส์หันทิศ</div></div>;
 }
 
-function floorColor(mapId: MapId) { return mapId === "garden" ? "#344a32" : mapId === "library" ? "#3e342b" : "#263d3b"; }
+function floorColor(mapId: MapId) { return mapId === "house" ? "#c5a77f" : mapId === "garden" ? "#344a32" : mapId === "library" ? "#3e342b" : "#263d3b"; }
 function propColor(mapId: MapId, index: number) { const colors = mapId === "garden" ? ["#456340", "#5c7546", "#807c50"] : mapId === "library" ? ["#65462f", "#785638", "#5b493c"] : ["#456462", "#536f76", "#647874"]; return colors[index % colors.length]; }
+
+function addHouseDecorations(scene: THREE.Scene, decorations: MapDecoration[]) {
+  const addBox = (x: number, y: number, z: number, width: number, height: number, depth: number, color: string, roughness = 0.82) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), new THREE.MeshStandardMaterial({ color, roughness }));
+    mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh); return mesh;
+  };
+  for (let x = -23; x <= 23; x += 2) addBox(x, -0.03, 0, 0.045, 0.025, 35, x % 4 === 0 ? "#af906b" : "#b99b75");
+  const addPart = (item: MapDecoration, dx: number, y: number, dz: number, width: number, height: number, depth: number, color: string) => addBox(item.x + dx, y, item.z + dz, width, height, depth, color);
+
+  for (const item of decorations) {
+    const color = item.color ?? "#9e805d";
+    switch (item.kind) {
+      case "wall": {
+        addBox(item.x, item.height / 2 - 0.06, item.z, item.width, item.height, item.depth, color, 0.95);
+        addBox(item.x, item.height - 0.12, item.z, item.width + 0.12, 0.16, item.depth + 0.12, "#f0dfc4");
+        addBox(item.x, 0.13, item.z, item.width + 0.04, 0.22, item.depth + 0.04, "#9c7754");
+        if (item.width > 30) {
+          for (const windowX of [-15, 0, 15]) {
+            addPart(item, windowX, 1.85, 0, 3.1, 1.05, 0.08, "#8ec7d0");
+            addPart(item, windowX, 1.85, -0.06, 0.1, 1.18, 0.18, "#f0dfc4");
+            addPart(item, windowX, 1.85, 0.06, 3.2, 0.1, 0.18, "#f0dfc4");
+          }
+        } else if (item.depth > 30) {
+          for (const windowZ of [-9, 9]) {
+            addPart(item, 0, 1.85, windowZ, 0.08, 1.05, 3.1, "#8ec7d0");
+            addPart(item, -0.06, 1.85, windowZ, 0.18, 1.18, 0.1, "#f0dfc4");
+            addPart(item, 0.06, 1.85, windowZ, 0.18, 0.1, 3.2, "#f0dfc4");
+          }
+        }
+        break;
+      }
+      case "rug": {
+        addBox(item.x, 0.005 + item.height / 2, item.z, item.width, item.height, item.depth, color);
+        addBox(item.x, 0.018 + item.height, item.z - item.depth / 2 + 0.12, item.width - 0.3, 0.025, 0.08, "#e9d2ac");
+        addBox(item.x, 0.018 + item.height, item.z + item.depth / 2 - 0.12, item.width - 0.3, 0.025, 0.08, "#e9d2ac");
+        break;
+      }
+      case "sofa": {
+        addPart(item, 0, 0.35, 0.08, item.width * 0.88, 0.62, item.depth * 0.78, color);
+        addPart(item, 0, 0.83, -item.depth * 0.32, item.width * 0.82, 0.92, item.depth * 0.24, color);
+        addPart(item, -item.width * 0.43, 0.56, 0.02, item.width * 0.14, 0.78, item.depth * 0.95, "#547f82");
+        addPart(item, item.width * 0.43, 0.56, 0.02, item.width * 0.14, 0.78, item.depth * 0.95, "#547f82");
+        for (let index = 0; index < 3; index++) addPart(item, (index - 1) * item.width * 0.25, 0.69, 0.16, item.width * 0.22, 0.12, item.depth * 0.46, "#92b3a7");
+        break;
+      }
+      case "table": {
+        const topY = item.height - 0.1;
+        addBox(item.x, topY, item.z, item.width, 0.2, item.depth, color);
+        for (const dx of [-0.42, 0.42]) for (const dz of [-0.38, 0.38]) addBox(item.x + item.width * dx, topY / 2, item.z + item.depth * dz, 0.16, topY, 0.16, "#755337");
+        break;
+      }
+      case "bed": {
+        addPart(item, 0, 0.25, 0, item.width, 0.45, item.depth, "#78573e");
+        addPart(item, 0, 0.53, 0, item.width * 0.96, 0.28, item.depth * 0.94, "#e6d5b8");
+        addPart(item, 0, 0.7, item.depth * 0.19, item.width * 0.9, 0.14, item.depth * 0.48, color);
+        addPart(item, -item.width * 0.22, 0.83, -item.depth * 0.3, item.width * 0.3, 0.12, item.depth * 0.18, "#f4ead7");
+        addPart(item, item.width * 0.22, 0.83, -item.depth * 0.3, item.width * 0.3, 0.12, item.depth * 0.18, "#f4ead7");
+        addPart(item, 0, 0.72, -item.depth * 0.49, item.width * 1.03, item.height, 0.18, "#886548");
+        break;
+      }
+      case "bookshelf": {
+        addBox(item.x, item.height / 2, item.z, item.width * 0.92, item.height, item.depth * 0.92, "#684b37");
+        for (let level = 1; level < 5; level++) addPart(item, 0, item.height * level / 5, 0, item.width, 0.12, item.depth, "#b28a5d");
+        for (let index = 0; index < 8; index++) {
+          const bookColors = ["#bc6e58", "#e4bd72", "#6a9da0", "#d2d5b5"];
+          const z = item.z - item.depth * 0.38 + index * item.depth * 0.1;
+          addPart(item, 0, 0.35 + (index % 4) * 0.45, z, item.width * (index % 2 ? 0.35 : 0.48), 0.42, 0.35, bookColors[index % bookColors.length]);
+        }
+        break;
+      }
+      case "wardrobe": {
+        addBox(item.x, item.height / 2, item.z, item.width, item.height, item.depth, color);
+        addBox(item.x, item.height / 2, item.z + item.depth / 2 + 0.025, item.width * 0.46, item.height * 0.88, 0.07, "#b18a61");
+        addBox(item.x + item.width * 0.27, item.height / 2, item.z + item.depth / 2 + 0.07, 0.08, 0.08, 0.08, "#ecd39c");
+        break;
+      }
+      case "counter": {
+        addBox(item.x, item.height * 0.42, item.z, item.width * 0.92, item.height * 0.82, item.depth * 0.9, color);
+        addBox(item.x, item.height - 0.08, item.z, item.width + 0.14, 0.16, item.depth + 0.14, "#e5d2ad");
+        for (let index = 0; index < Math.max(2, Math.floor(item.width / 2)); index++) {
+          const doorX = item.x - item.width * 0.38 + index * item.width * 0.76 / (Math.max(2, Math.floor(item.width / 2)) - 1);
+          addBox(doorX, item.height * 0.4, item.z + item.depth * 0.46, item.width * 0.16, item.height * 0.48, 0.06, "#bd9569");
+        }
+        break;
+      }
+      case "chair": {
+        const seatY = item.height * 0.48;
+        addBox(item.x, seatY, item.z, item.width * 0.85, 0.18, item.depth * 0.82, color);
+        addBox(item.x, item.height * 0.78, item.z - item.depth * 0.36, item.width * 0.84, item.height * 0.38, 0.16, "#557e82");
+        for (const dx of [-0.34, 0.34]) for (const dz of [-0.3, 0.3]) addBox(item.x + item.width * dx, seatY / 2, item.z + item.depth * dz, 0.12, seatY, 0.12, "#755337");
+        break;
+      }
+      case "plant": {
+        const pot = new THREE.Mesh(new THREE.CylinderGeometry(item.width * 0.32, item.width * 0.23, 0.55, 12), new THREE.MeshStandardMaterial({ color: "#b8755c", roughness: 0.9 }));
+        pot.position.set(item.x, 0.28, item.z); pot.castShadow = true; scene.add(pot);
+        const leaves = new THREE.Mesh(new THREE.IcosahedronGeometry(item.width * 0.42, 1), new THREE.MeshStandardMaterial({ color, roughness: 0.88 }));
+        leaves.position.set(item.x, item.height * 0.72, item.z); leaves.castShadow = true; scene.add(leaves);
+        for (let index = 0; index < 3; index++) {
+          const leaf = new THREE.Mesh(new THREE.ConeGeometry(item.width * 0.15, item.height * 0.55, 6), new THREE.MeshStandardMaterial({ color: index % 2 ? "#628655" : color, roughness: 0.85 }));
+          leaf.position.set(item.x + (index - 1) * item.width * 0.22, item.height * 0.7, item.z + (1 - index) * item.depth * 0.12); leaf.castShadow = true; scene.add(leaf);
+        }
+        break;
+      }
+    }
+  }
+}
+
 function addLandmarks(scene: THREE.Scene, mapId: MapId) {
   const geometry = new THREE.CylinderGeometry(1.5, 1.5, 0.18, 20); const material = new THREE.MeshStandardMaterial({ color: mapId === "garden" ? "#c6a963" : mapId === "library" ? "#a48662" : "#77a5a1", roughness: 0.72 });
   const landmark = new THREE.Mesh(geometry, material); landmark.position.set(0, 0.02, 0); landmark.receiveShadow = true; scene.add(landmark);
