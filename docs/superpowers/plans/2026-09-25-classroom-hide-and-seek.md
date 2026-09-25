@@ -139,7 +139,8 @@ export interface QuizAnswerInput {
 ### Task 1: Bootstrap the React, Vite, and Colyseus application
 
 **Files:**
-- Create: `package.json`, `tsconfig.json`, `vite.config.ts`, `index.html`, `.gitignore`
+- Create: `package.json`, `tsconfig.json`, `vite.config.ts`, `index.html`
+- Modify: `.gitignore` (the worktree bootstrap creates the initial ignore file before implementation)
 - Create: `src/main.tsx`, `src/App.tsx`, `src/styles.css`, `src/server/index.ts`, `src/server/health.ts`, `src/server/rooms/ClassroomRoom.ts`, `src/shared/types.ts`, `src/shared/protocol.ts`
 - Test: `src/App.test.tsx`, `src/server/health.test.ts`
 
