@@ -4,9 +4,9 @@
 
 **Goal:** Build a shareable, browser-based 3D classroom hide-and-seek game for up to 50 players, with teacher-managed quiz packs, three selectable maps, and quiz-powered abilities.
 
-**Architecture:** A single Vite application serves the React/Three.js client and a Colyseus authoritative room server from one origin. Supabase Auth and Postgres store teacher accounts and question packs; Row Level Security restricts packs to their owner. Railway runs the persistent Node service that serves the game and accepts WebSocket connections.
+**Architecture:** A single Vite application serves the React/Three.js client and a Colyseus authoritative room server from one origin. Supabase Auth and Postgres Free store teacher accounts and question packs; Row Level Security restricts packs to their owner. A Render Free Web Service runs the Node service and accepts WebSocket connections. The match remains in server memory; saved question packs persist in Supabase.
 
-**Tech Stack:** React, TypeScript, Vite, Three.js, Colyseus 0.18+ with its Vite plugin and fixed-timestep netcode, Supabase Auth/Postgres, Vitest, `@colyseus/testing`, pgTAP, Docker, and Railway.
+**Tech Stack:** React, TypeScript, Vite, Three.js, Colyseus 0.18+ with its Vite plugin and fixed-timestep netcode, Supabase Free Auth/Postgres, Vitest, `@colyseus/testing`, `@colyseus/loadtest`, pgTAP, Docker, and Render Free.
 
 **Spec:** `docs/superpowers/specs/2026-09-25-classroom-hide-and-seek-design.md`
 
@@ -22,10 +22,15 @@
 - Questions are shuffled without repeats until the pack is exhausted, then shuffled again; hiders win if any remain uncaught when time expires, and seekers win if all hiders are caught first.
 - A disconnected student can return to the same room for 3 minutes using the same nickname and browser-stored reconnect token.
 - If the teacher disconnects during active play, pause the match until that teacher returns and resumes or ends it.
+- Treat each live room as temporary server memory: a Render restart or idle spin-down ends that match, while saved quiz packs remain in Supabase.
+- Keep deployment on Render's Free compute plan. The Free service has 0.1 CPU, 512 MB RAM, and 750 included instance hours per workspace each month; it is for hobby/testing and does not guarantee adequate performance for 50 simultaneous players.
+- Render Free Web Services sleep after 15 minutes without inbound traffic (including WebSocket messages); the next request or socket can take about one minute to wake. A Free Supabase project may pause after a week of low activity.
 - Build original scenes and character graphics for Aebnian; do not reuse Meccha Chameleon artwork or maps.
 - The game must support touch controls on mobile and keyboard/mouse controls on computer.
 
 **WebGL compatibility constraint:** Three.js `WebGLRenderer` requires WebGL 2. Detect unsupported browsers before room entry and show a clear compatibility message. The official renderer documentation states that WebGL 1 has not been supported since r163. [Three.js WebGLRenderer](https://threejs.org/docs/pages/WebGLRenderer.html)
+
+**Free-tier acceptance constraint:** run the 50-client rehearsal against both the local server and the deployed Render Free service before describing 50 players as supported in practice. If the Free instance fails the rehearsal, the free-hosting requirement and 50-player requirement are not both met; keep the capacity limitation visible rather than silently upgrading or charging.
 
 ## Review Focus
 
@@ -34,12 +39,14 @@
 3. **Movement and capture abuse:** clamp malformed movement inputs and decide captures on the server; a client cannot set its own role or teleport to tag someone. Pin these in Task 5’s room simulation tests.
 4. **Quiz timer boundaries:** an answer at the 15-second deadline is rejected, the round clock continues during prompts, and the match ends at zero even if a prompt is open. Pin these in Task 7’s scheduler checks.
 5. **Reconnect identity:** only the browser-stored token can restore a disconnected player, within 3 minutes; expired or copied nicknames do not take over that slot. Pin these in Task 8’s reconnect tests.
+6. **Free-host capacity:** verify the same 50-client join and state-sync rehearsal on the actual Render Free instance before classroom use. Pin the local and hosted runs in Task 9.
 
 ---
 
 ## File Map
 
 - `package.json`, `package-lock.json`, `tsconfig.json`, `vite.config.ts`: application dependencies, scripts, shared TypeScript settings, and the Colyseus/Vite integration.
+- `render.yaml`: Render Blueprint for one Free Docker Web Service with a `/health` check.
 - `src/main.tsx`, `src/App.tsx`, `src/styles.css`: React entry point and top-level screens.
 - `src/shared/protocol.ts`, `src/shared/movement.ts`, `src/shared/types.ts`: message names, map/role types, and the deterministic movement function shared by browser and room server.
 - `src/shared/mapDefinitions.ts`: authoritative bounds, obstacle rectangles, and spawn points shared by renderer and server.
@@ -496,12 +503,12 @@ git commit -m "feat: handle reconnects and show round results"
 ### Task 9: Package the app for a public HTTPS/WebSocket URL
 
 **Files:**
-- Create: `Dockerfile`, `.dockerignore`, `README.md`, `scripts/production-smoke.mjs`, `scripts/classroom-loadtest.ts`
+- Create: `Dockerfile`, `.dockerignore`, `render.yaml`, `README.md`, `scripts/production-smoke.mjs`, `scripts/classroom-loadtest.ts`
 - Modify: `package.json`, `vite.config.ts`, `src/server/index.ts`, `.env.example`
 
 **Interfaces:**
-- Consumes: the production Vite/Colyseus build, Supabase URL and publishable key, and Railway `PORT`.
-- Produces: one deployable Node service serving the SPA and WebSocket room server over the same HTTPS origin, plus repeatable setup/deploy instructions.
+- Consumes: the production Vite/Colyseus build, a Supabase Free URL and publishable key, and Render's default public port.
+- Produces: one Render Free Docker Web Service serving the SPA and WebSocket room server over the same HTTPS origin, plus repeatable setup/deploy instructions.
 
 - [ ] **Step 1: Write a production-build smoke check**
 
@@ -514,7 +521,7 @@ Expected: `/health` returns success, `/` serves the built client, and the smoke 
 
 - [ ] **Step 3: Add Docker packaging and environment documentation**
 
-Build in a Node LTS image, run `npm ci`, `npm run build`, and start `node dist/server/server.mjs`. Set Docker `ARG PORT=2567` and `ENV PORT=$PORT` before the Vite build, then set Railway’s service `PORT=2567` so the plugin’s build-time server port and runtime port match. Use `port: Number(process.env.PORT ?? 2567)` in `vite.config.ts`; retain `serveClient: true` so the client and WebSocket room server share an origin. Document `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` server settings and their `VITE_` browser equivalents. Keep all project secrets out of Git.
+Build in a Node LTS image, run `npm ci`, `npm run build`, and start `node dist/server/server.mjs`. Set Docker `ARG PORT=10000` and `ENV PORT=10000` before the Vite build so its configured `port: Number(process.env.PORT ?? 2567)` is compiled to Render's default public port; retain `serveClient: true` so the client and WebSocket room server share an origin. Define the Render Blueprint with `plan: free`, Docker runtime, and `/health` check; provide Supabase URL and publishable-key values through Render's dashboard prompts rather than committing credentials. Keep all project secrets out of Git.
 
 - [ ] **Step 4: Run production smoke check and the full project checks**
 
@@ -530,17 +537,20 @@ Add the official `@colyseus/loadtest` tool as a dev dependency and a custom clie
 - [ ] **Step 6: Commit deployment packaging**
 
 ```bash
-git add Dockerfile .dockerignore .env.example README.md package.json vite.config.ts src/server/index.ts scripts
+git add Dockerfile .dockerignore render.yaml .env.example README.md package.json vite.config.ts src/server/index.ts scripts
 git commit -m "chore: package the game for persistent websocket hosting"
 ```
 
-- [ ] **Step 7: Deploy after the user connects provider projects and confirms billing**
+- [ ] **Step 7: Deploy the free service after the user connects provider projects**
 
-Create the Railway persistent service from this repository, set the documented environment variables, configure its public HTTPS domain, and apply the Supabase migration to the user’s project. Railway supports long-lived WebSocket connections on HTTP/1.1. The Railway Hobby plan has a $5 monthly minimum that includes $5 of resource usage; usage above that can add charges. Do not upgrade an account or start billable production resources until the user has reviewed the current amount and explicitly authorized it. [Railway networking limits](https://docs.railway.com/networking/public-networking/specs-and-limits) · [Railway pricing](https://railway.com/pricing)
+Create the Render Blueprint from this repository using the Free plan, configure its public `onrender.com` HTTPS domain, and apply the migration to the user’s Supabase Free project. Render routes HTTP and WebSocket traffic to one public port; its Free Web Service sleeps after 15 minutes without inbound traffic and may restart, so a sleeping service needs about a minute to wake and a restart loses any live in-memory room. Run the 50-client load rehearsal against the deployed Free service before classroom use. Render Free compute has no monthly base charge, but outbound-bandwidth and build-pipeline overages may be billed if a payment method is attached; without one, reaching included limits suspends service/builds. Keep the compute plan at `free` and do not enable paid resources. [Render WebSockets](https://render.com/docs/websocket) · [Render Free limitations](https://render.com/docs/free) · [Render pricing](https://render.com/pricing)
 
 ## Source Notes
 
 - Colyseus rooms own synchronized state, process client messages, and support reconnection; its 0.18 fixed-timestep APIs provide server-authoritative input simulation and client prediction. [Rooms](https://docs.colyseus.io/room) · [Server Input & Fixed Timestep](https://docs.colyseus.io/netcode/server-input)
 - The Colyseus Vite plugin can serve the built frontend and WebSocket server from one process and origin. [Vite Plugin](https://docs.colyseus.io/server/vite)
+- Render Blueprints can declare a Docker Web Service with the `free` compute plan. [Blueprint specification](https://render.com/docs/blueprint-spec)
 - Colyseus provides a load-test tool for simulating concurrent room clients. [Load Testing](https://docs.colyseus.io/tools/loadtest)
 - Supabase RLS requires both grants and policies on exposed tables; policies must scope records to the authenticated teacher. [Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security)
+- Render Free Web Services accept WebSockets, sleep after 15 idle minutes, and have 750 free instance hours per workspace each month. [Free Services](https://render.com/docs/free) · [Compute plans](https://render.com/docs/compute-plans)
+- Supabase Free projects with low database activity can be paused after 7 days. [Project Pausing](https://supabase.com/docs/guides/platform/free-project-pausing)
