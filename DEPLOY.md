@@ -14,6 +14,8 @@ Blueprint ใน `render.yaml` มี service `aeb-nian` ที่รัน `ser
 
 ถ้า Render ไม่เริ่ม deploy เอง ให้เปิด **Deploys → Manual Deploy → Deploy latest commit** แล้วตรวจว่า commit ล่าสุดคือ `f22e5f0` หรือใหม่กว่า
 
+ถ้าบริการยังรันจาก root ของ repo และใช้ `yarn start` โค้ดนี้มี `package.json` ที่ root ให้เริ่ม `server/server.js` ได้เช่นกัน ส่วนการตั้งค่าที่แนะนำยังเป็น Root Directory `server`, Build `npm install`, Start `npm start`
+
 หลัง deploy ตรวจว่า:
 
 1. `/api/questions/sets` มีชุดตัวอย่างและชุดที่ครูเผยแพร่

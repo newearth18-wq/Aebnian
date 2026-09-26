@@ -14,6 +14,7 @@ services:
         - server/**
         - client/**
         - supabase-public.json
+        - package.json
         - render.yaml
 
   # CodeQuest Universe — คนละ service คนละ URL คนละโปรเซส
