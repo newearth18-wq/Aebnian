@@ -26,7 +26,7 @@ export interface MapDefinition {
 }
 
 export interface MapDecoration {
-  kind: "wall" | "sofa" | "table" | "bed" | "bookshelf" | "wardrobe" | "counter" | "chair" | "rug" | "plant";
+  kind: "wall" | "sofa" | "table" | "bed" | "bookshelf" | "wardrobe" | "counter" | "chair" | "rug" | "plant" | "bench" | "vase" | "picture" | "banner" | "doorframe" | "sconce";
   x: number;
   z: number;
   width: number;
@@ -34,6 +34,7 @@ export interface MapDecoration {
   height: number;
   color?: string;
   blocksMovement?: boolean;
+  rotation?: number;
 }
 
 export interface PlayerView extends PlayerPose {

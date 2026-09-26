@@ -18,40 +18,67 @@ const houseDecorations: MapDecoration[] = [
   { kind: "wall", x: 23.75, z: 0, width: 0.5, depth: 36, height: 3.2, color: "#e4cba9", blocksMovement: true },
   { kind: "wall", x: 0, z: -17.75, width: 48, depth: 0.5, height: 3.2, color: "#e4cba9", blocksMovement: true },
   { kind: "wall", x: 0, z: 17.75, width: 48, depth: 0.5, height: 3.2, color: "#e4cba9", blocksMovement: true },
-  { kind: "wall", x: 0, z: -11, width: 0.45, depth: 14, height: 2.8, color: "#d5b995", blocksMovement: true },
-  { kind: "wall", x: 0, z: 11, width: 0.45, depth: 14, height: 2.8, color: "#d5b995", blocksMovement: true },
-  { kind: "wall", x: -14.5, z: 0, width: 19, depth: 0.45, height: 2.8, color: "#d5b995", blocksMovement: true },
-  { kind: "wall", x: 14.5, z: 0, width: 19, depth: 0.45, height: 2.8, color: "#d5b995", blocksMovement: true },
+  // A long, open hallway with doors into four distinct side rooms.
+  ...[
+    { x: -21, z: -4, width: 6, depth: 0.45 }, { x: -12.5, z: -4, width: 7, depth: 0.45 },
+    { x: -3, z: -4, width: 8, depth: 0.45 }, { x: 9, z: -4, width: 8, depth: 0.45 }, { x: 20, z: -4, width: 8, depth: 0.45 },
+    { x: -20.5, z: 4, width: 7, depth: 0.45 }, { x: -9.5, z: 4, width: 8, depth: 0.45 },
+    { x: 3, z: 4, width: 10, depth: 0.45 }, { x: 17.5, z: 4, width: 13, depth: 0.45 },
+  ].map((wall) => ({ kind: "wall" as const, ...wall, height: 2.8, color: "#527044", blocksMovement: true })),
+  // Short room dividers leave door-sized openings into neighboring rooms.
+  { kind: "wall", x: 0, z: -15.5, width: 0.45, depth: 5, height: 2.8, color: "#527044", blocksMovement: true },
+  { kind: "wall", x: 0, z: -8.5, width: 0.45, depth: 5, height: 2.8, color: "#527044", blocksMovement: true },
+  { kind: "wall", x: 0, z: 15.5, width: 0.45, depth: 5, height: 2.8, color: "#527044", blocksMovement: true },
+  { kind: "wall", x: 0, z: 8.5, width: 0.45, depth: 5, height: 2.8, color: "#527044", blocksMovement: true },
 
-  { kind: "rug", x: -15, z: -10, width: 11, depth: 7, height: 0.08, color: "#b97862" },
-  { kind: "sofa", x: -15.5, z: -7, width: 7, depth: 3.3, height: 1.35, color: "#668f91", blocksMovement: true },
-  { kind: "table", x: -9.5, z: -12, width: 3.5, depth: 2.5, height: 0.85, color: "#986d48", blocksMovement: true },
-  { kind: "bookshelf", x: -4, z: -13, width: 3, depth: 6, height: 2.35, color: "#806044", blocksMovement: true },
-  { kind: "plant", x: -21, z: -14, width: 2, depth: 2, height: 1.6, color: "#72915c", blocksMovement: true },
+  ...[
+    { x: -17, z: -4, width: 2, depth: 0.55 }, { x: -8, z: -4, width: 2, depth: 0.55 },
+    { x: 3, z: -4, width: 3.2, depth: 0.55 }, { x: 14.5, z: -4, width: 2.5, depth: 0.55 },
+    { x: -15.5, z: 4, width: 2.5, depth: 0.55 }, { x: -3.5, z: 4, width: 2.5, depth: 0.55 }, { x: 9.5, z: 4, width: 2.5, depth: 0.55 },
+    { x: 0, z: -12.5, width: 0.55, depth: 2 }, { x: 0, z: 12.5, width: 0.55, depth: 2 },
+  ].map((frame) => ({ kind: "doorframe" as const, ...frame, height: 2.8, color: "#70482e", blocksMovement: false })),
+  { kind: "sconce", x: -11.5, z: -3.72, width: 0.55, depth: 0.25, height: 2.1, color: "#f4d28f", rotation: 0 },
+  { kind: "sconce", x: -3, z: -3.72, width: 0.55, depth: 0.25, height: 2.1, color: "#f4d28f", rotation: 0 },
+  { kind: "sconce", x: 8.5, z: -3.72, width: 0.55, depth: 0.25, height: 2.1, color: "#f4d28f", rotation: 0 },
+  { kind: "sconce", x: -9, z: 3.72, width: 0.55, depth: 0.25, height: 2.1, color: "#f4d28f", rotation: Math.PI },
+  { kind: "sconce", x: 2, z: 3.72, width: 0.55, depth: 0.25, height: 2.1, color: "#f4d28f", rotation: Math.PI },
+  { kind: "sconce", x: 17, z: 3.72, width: 0.55, depth: 0.25, height: 2.1, color: "#f4d28f", rotation: Math.PI },
 
-  { kind: "counter", x: 13, z: -15, width: 13, depth: 2.6, height: 1.65, color: "#9b7656", blocksMovement: true },
-  { kind: "counter", x: 8, z: -9.5, width: 5, depth: 2.5, height: 1.45, color: "#c49d6b", blocksMovement: true },
-  { kind: "table", x: 17.5, z: -5, width: 5.5, depth: 3.1, height: 0.9, color: "#a47c52", blocksMovement: true },
-  { kind: "chair", x: 13.5, z: -5, width: 1.5, depth: 1.5, height: 1.25, color: "#638c91", blocksMovement: true },
-  { kind: "chair", x: 21.5, z: -5, width: 1.5, depth: 1.5, height: 1.25, color: "#638c91", blocksMovement: true },
-  { kind: "plant", x: 21, z: -13, width: 2, depth: 2, height: 1.7, color: "#82985e", blocksMovement: true },
+  // The hallway is deliberately cluttered like a vintage mansion corridor.
+  { kind: "bench", x: -15, z: -2.5, width: 4, depth: 0.9, height: 1.25, color: "#76523a", blocksMovement: true },
+  { kind: "bench", x: 5, z: 2.55, width: 3.7, depth: 0.9, height: 1.25, color: "#76523a", blocksMovement: true },
+  { kind: "vase", x: -9, z: 2.45, width: 1.15, depth: 1.15, height: 1.65, color: "#e7dfc5", blocksMovement: true },
+  { kind: "vase", x: 13, z: -2.55, width: 1.15, depth: 1.15, height: 1.65, color: "#e7dfc5", blocksMovement: true },
+  { kind: "banner", x: -5, z: 0, width: 15, depth: 5.5, height: 3.25, color: "#f0d98f" },
+  { kind: "banner", x: 13, z: 0, width: 14, depth: 5.5, height: 3.25, color: "#e8a990" },
+  { kind: "picture", x: -20, z: -3.72, width: 1.35, depth: 0.12, height: 1.5, color: "#bd9a5f", rotation: 0 },
+  { kind: "picture", x: 7, z: -3.72, width: 1.35, depth: 0.12, height: 1.5, color: "#bd9a5f", rotation: 0 },
+  { kind: "picture", x: -13, z: 3.72, width: 1.35, depth: 0.12, height: 1.5, color: "#bd9a5f", rotation: Math.PI },
+  { kind: "picture", x: 20, z: 3.72, width: 1.35, depth: 0.12, height: 1.5, color: "#bd9a5f", rotation: Math.PI },
 
-  { kind: "rug", x: -15, z: 10, width: 10, depth: 8, height: 0.08, color: "#729395" },
-  { kind: "bed", x: -15, z: 9, width: 7, depth: 5.5, height: 1.15, color: "#668f91", blocksMovement: true },
-  { kind: "table", x: -20, z: 4, width: 2.2, depth: 2, height: 0.75, color: "#986d48", blocksMovement: true },
-  { kind: "table", x: -10, z: 4, width: 2.2, depth: 2, height: 0.75, color: "#986d48", blocksMovement: true },
-  { kind: "wardrobe", x: -4, z: 13, width: 5, depth: 2.8, height: 2.5, color: "#896848", blocksMovement: true },
-  { kind: "plant", x: -21, z: 14, width: 2, depth: 2, height: 1.6, color: "#6f915d", blocksMovement: true },
-
-  { kind: "table", x: 12, z: 7, width: 6.5, depth: 2.5, height: 0.95, color: "#9e764f", blocksMovement: true },
-  { kind: "chair", x: 12, z: 4, width: 1.8, depth: 1.8, height: 1.3, color: "#658e91", blocksMovement: true },
-  { kind: "bookshelf", x: 20.5, z: 10, width: 3, depth: 10, height: 2.45, color: "#806044", blocksMovement: true },
-  { kind: "counter", x: 5, z: 14, width: 4, depth: 2.4, height: 1.2, color: "#b18a61", blocksMovement: true },
-  { kind: "rug", x: 0, z: 0, width: 6, depth: 5, height: 0.06, color: "#b8a37d" },
+  // Furnished rooms off the hall give players routes and hiding places.
+  { kind: "sofa", x: -16, z: -11, width: 6.5, depth: 3, height: 1.35, color: "#a66f51", blocksMovement: true },
+  { kind: "table", x: -7, z: -12.5, width: 3.5, depth: 2.5, height: 0.85, color: "#80563a", blocksMovement: true },
+  { kind: "vase", x: -21, z: -7, width: 1.35, depth: 1.35, height: 1.8, color: "#d7cba9", blocksMovement: true },
+  { kind: "bookshelf", x: 16, z: -12.5, width: 3, depth: 8, height: 2.45, color: "#69482f", blocksMovement: true },
+  { kind: "wardrobe", x: 7, z: -15.5, width: 4, depth: 2.3, height: 2.5, color: "#704a31", blocksMovement: true },
+  { kind: "plant", x: 21, z: -7, width: 1.8, depth: 1.8, height: 1.6, color: "#71824d", blocksMovement: true },
+  { kind: "bench", x: -15, z: 11.5, width: 4, depth: 1.1, height: 1.25, color: "#76523a", blocksMovement: true },
+  { kind: "counter", x: -7, z: 13.5, width: 5, depth: 2.4, height: 1.25, color: "#8a6446", blocksMovement: true },
+  { kind: "vase", x: -21, z: 7, width: 1.35, depth: 1.35, height: 1.8, color: "#d7cba9", blocksMovement: true },
+  { kind: "bed", x: 15, z: 12.5, width: 7, depth: 5.5, height: 1.15, color: "#718b85", blocksMovement: true },
+  { kind: "table", x: 7, z: 15, width: 3.2, depth: 2, height: 0.85, color: "#80563a", blocksMovement: true },
 ];
 const houseObstacles: MapDefinition["obstacles"] = houseDecorations
   .filter((decoration) => decoration.blocksMovement)
   .map(({ x, z, width, depth }) => ({ minX: x - width / 2, maxX: x + width / 2, minZ: z - depth / 2, maxZ: z + depth / 2 }));
+const hallwaySpawnCandidates: MapDefinition["spawnPoints"] = [];
+for (let x = -21; x <= 21; x += 1.5) for (const z of [-2.25, 0, 2.25]) {
+  if (!houseObstacles.some((obstacle) => x > obstacle.minX - 0.85 && x < obstacle.maxX + 0.85 && z > obstacle.minZ - 0.85 && z < obstacle.maxZ + 0.85)) {
+    hallwaySpawnCandidates.push({ x, z, yaw: x < 0 ? Math.PI / 2 : -Math.PI / 2 });
+  }
+}
+const houseSpawns = Array.from({ length: Math.min(50, hallwaySpawnCandidates.length) }, (_, index) => hallwaySpawnCandidates[Math.floor(index * hallwaySpawnCandidates.length / 50)]);
 
 export const MAPS: Record<MapId, MapDefinition> = {
   lab: {
@@ -93,7 +120,7 @@ export const MAPS: Record<MapId, MapDefinition> = {
     id: "house", label: "บ้านหลบซ่อน", description: "วิ่งผ่านห้องนั่งเล่น ครัว และห้องอ่านหนังสือ",
     bounds: houseBounds,
     obstacles: houseObstacles,
-    spawnPoints: makeSpawns(houseBounds, houseObstacles),
+    spawnPoints: houseSpawns,
     decorations: houseDecorations,
   },
 };
