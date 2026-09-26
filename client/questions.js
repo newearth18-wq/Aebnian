@@ -10,7 +10,7 @@ class QuestionManager {
   async loadQuestions(setId = null) {
     try {
       const url = setId ? `/api/questions?setId=${setId}` : '/api/questions';
-      const response = await fetch(url);
+      const response = await fetch(url, { cache: 'no-store' });
       const questions = await response.json();
       return questions;
     } catch (error) {

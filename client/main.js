@@ -1613,12 +1613,18 @@ async function populateQuestionSets() {
   document.getElementById('closeQuestionSetModal').addEventListener('click', closeQuestionSetModal);
   questionSetModal.addEventListener('click', (e) => { if (e.target === questionSetModal) closeQuestionSetModal(); });
   questionSetSearch.addEventListener('input', renderQuestionSetList);
+}
 
+async function refreshQuestionSets() {
   try {
     const [setsRes, allQuestions] = await Promise.all([
-      fetch('/api/questions/sets').then(r => r.json()),
+      fetch('/api/questions/sets', { cache: 'no-store' }).then(r => {
+        if (!r.ok) throw new Error(`Question sets returned ${r.status}`);
+        return r.json();
+      }),
       questionManager.loadQuestions().catch(() => [])
     ]);
+    if (!Array.isArray(setsRes)) throw new Error('Question sets response is invalid');
     // Count questions per set so the picker shows how big each set is
     const counts = {};
     (allQuestions || []).forEach(q => {
@@ -1628,15 +1634,17 @@ async function populateQuestionSets() {
     questionSets = (setsRes || []).map(s => ({ ...s, count: counts[String(s.id)] || 0 }));
   } catch (error) {
     console.error('Failed to load question sets:', error);
-    questionSets = [];
+    questionSetList.innerHTML = '<div class="picker-empty">โหลดชุดข้อสอบไม่สำเร็จ กรุณาปิดแล้วเปิดใหม่</div>';
+    return;
   }
   renderQuestionSetList();
 }
 
 function openQuestionSetModal() {
   questionSetSearch.value = '';
-  renderQuestionSetList();
   questionSetModal.style.display = 'flex';
+  questionSetList.innerHTML = '<div class="picker-empty">กำลังโหลดชุดข้อสอบ…</div>';
+  refreshQuestionSets();
 }
 function closeQuestionSetModal() { questionSetModal.style.display = 'none'; }
 

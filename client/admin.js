@@ -32,7 +32,7 @@ async function loadPacks(ownerId) {
     const title = document.createElement('strong');
     title.textContent = pack.title;
     const detail = document.createElement('small');
-    detail.textContent = `${pack.quiz_questions.length} ข้อ · ${pack.is_published ? 'เผยแพร่แล้ว' : 'ฉบับร่าง'}`;
+    detail.textContent = `${pack.quiz_questions.length} ข้อ · ${pack.is_published ? 'เผยแพร่แล้ว · เลือกเล่นได้' : 'ฉบับร่าง · ยังไม่แสดงในเกม'}`;
     button.append(title, detail);
     button.onclick = () => editPack(pack);
     list.appendChild(button);
@@ -104,7 +104,9 @@ async function savePack(event) {
   editingId = data;
   const { data: { user } } = await db.auth.getUser();
   await loadPacks(user.id);
-  message('บันทึกชุดข้อสอบแล้ว');
+  message($('packPublished').checked
+    ? 'เผยแพร่แล้ว เปิดตัวเลือกชุดข้อสอบในหน้าสร้างห้องเพื่อเลือกเล่นได้'
+    : 'บันทึกเป็นฉบับร่างแล้ว ชุดนี้ยังไม่แสดงในหน้าสร้างห้อง');
 }
 
 $('loginForm').onsubmit = async event => {
