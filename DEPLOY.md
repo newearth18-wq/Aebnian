@@ -10,7 +10,9 @@
 
 Blueprint ใน `render.yaml` มี service `aeb-nian` ที่รัน `server/server.js` และ service `codequest-universe` แยกกัน ไฟล์เกมใช้ `client/` ส่วนข้อมูลข้อสอบใช้ Supabase จึงไม่หายเมื่อ Render รีสตาร์ท
 
-หากต้องการให้ `https://aeb-nian.onrender.com/` เปลี่ยนตามโค้ดนี้ บริการ Render เดิมต้องเชื่อมกับ repo/branch ที่มี commit นี้ หรือ deploy จาก repo นั้นด้วยตนเอง การอัปเดตโค้ดใน repo อีกแห่งเพียงอย่างเดียวไม่เปลี่ยนบริการ Render ที่ยังเชื่อมกับ `supakitpo-boop/meccha-chameleon-game` ซึ่งเป็น private
+หากต้องการให้ `https://aeb-nian.onrender.com/` เปลี่ยนตามโค้ดนี้ ใน Render Dashboard ให้เปิดบริการ `aeb-nian` → **Settings → Build → Source → Edit** แล้วเลือก repo `newearth18-wq/Aebnian` และ branch `feature/classroom-game-free-host` ตั้ง Root Directory เป็น `server`, Build Command เป็น `npm install`, Start Command เป็น `npm start` การเปลี่ยน source จะเริ่ม deploy ใหม่ ส่วนการอัปเดต repo อีกแห่งเพียงอย่างเดียวไม่เปลี่ยนบริการ Render ที่ยังเชื่อมกับ `supakitpo-boop/meccha-chameleon-game` ซึ่งเป็น private
+
+ถ้า Render ไม่เริ่ม deploy เอง ให้เปิด **Deploys → Manual Deploy → Deploy latest commit** แล้วตรวจว่า commit ล่าสุดคือ `f22e5f0` หรือใหม่กว่า
 
 หลัง deploy ตรวจว่า:
 
