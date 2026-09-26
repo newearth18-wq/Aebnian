@@ -153,10 +153,17 @@ function toast(message){const el=$('toast');el.textContent=message;el.classList.
 function updateHUD(){
   $('phaseLabel').textContent=state.phase==='prep'?'เตรียมซ่อน':'กำลังค้นหา';
   const seconds=Math.max(0,Math.ceil(state.time));$('clock').textContent=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;
-  $('hunterCount').textContent=state.role==='hider'?hunters.length:1;
+  $('hunterCount').textContent=hunters.length+(state.role==='seeker'?1:0);
   $('hiderCount').textContent=bots.filter(b=>b.userData.alive).length+(state.role==='hider'?1:0);
 }
 function finish(win,reason){if(state.finished)return;state.finished=true;state.active=false;document.exitPointerLock?.();$('end').classList.remove('hidden');$('endEyebrow').textContent=win?'ชนะแล้ว':'จบรอบ';$('endTitle').textContent=win?'คุณชนะ!':'คุณแพ้';$('endText').textContent=reason;}
+function infectPlayer(){
+  if(state.role!=='hider'||state.finished)return;
+  state.role='seeker';state.misses=0;state.yaw=player.rotation.y;state.pitch=-.07;state.pose=0;posePerson(player,0);
+  $('roleIcon').textContent='🔎';$('roleLabel').textContent='ผู้หา';$('actions').classList.add('hidden');$('paintPanel').classList.add('hidden');$('crosshair').classList.remove('hidden');weapon.visible=true;
+  $('status').textContent='WASD เดิน · ลากเมาส์เล็ง · คลิกยิงผู้ซ่อน';$('hint').textContent='คุณติดเชื้อแล้ว ตามหาผู้ซ่อนที่เหลือ';$('mobileAct').textContent='ยิง';
+  toast('ถูกจับแล้ว! เปลี่ยนเป็นผู้หา ตามหาคนที่เหลือ');updateHUD();
+}
 function updateMovement(dt){
   if(!player)return;
   const axisX=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+state.mobileX;
@@ -201,8 +208,9 @@ function updateAI(dt){
     hunter.userData.navTick=(hunter.userData.navTick||0)-dt;
     if(hunter.userData.navTick<=0||!hunter.userData.navStep||distance(hunter.position,hunter.userData.navStep)<.6){hunter.userData.navStep=nextNavStep(hunter.position,hunter.userData.waypoint);hunter.userData.navTick=.65}
     const dir=new THREE.Vector3().subVectors(hunter.userData.navStep,hunter.position);dir.y=0;const d=dir.length();if(d>.1){dir.normalize();move(hunter,dir.x*dt*(target?3.4:2.1),dir.z*dt*(target?3.4:2.1));hunter.rotation.y=Math.atan2(dir.x,-dir.z)}
-    if(target&&distance(hunter.position,target.position)<1.25){if(target===player){finish(false,'ผู้หาจับคุณได้ ลองเปลี่ยนสีหรือแอบหลังสิ่งกีดขวาง')}else{target.userData.alive=false;scene.remove(target);const infected=makePerson(target.position.x,target.position.z,'#eeeeeb',true);hunters.push(infected);toast('ผู้ซ่อนถูกจับและกลายเป็นผู้หา!');updateHUD()}}
+    if(target&&distance(hunter.position,target.position)<1.25){if(target===player){infectPlayer()}else{target.userData.alive=false;scene.remove(target);const infected=makePerson(target.position.x,target.position.z,'#eeeeeb',true);hunters.push(infected);toast('ผู้ซ่อนถูกจับและกลายเป็นผู้หา!');updateHUD()}}
   }
+  if(state.role==='seeker'&&bots.every(b=>!b.userData.alive))finish(true,'ทีมผู้หาจับผู้ซ่อนครบทุกคนแล้ว');
 }
 function setCamera(dt){
   if(!player){camera.position.set(Math.sin(previewSpin)*11,7,Math.cos(previewSpin)*11);camera.lookAt(0,1,0);return}
