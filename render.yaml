@@ -1,0 +1,42 @@
+services:
+  # เกมแอบเนียน — ชื่อ service คือที่มาของ URL (…onrender.com)
+  # เปลี่ยนจาก meccha-chameleon เป็น aeb-nian ให้ตรงกับชื่อเกม
+  # แก้ที่นี่เท่านั้น: service ถูกคุมด้วย Blueprint หน้า Dashboard จะล็อกช่อง Name ไว้
+  - type: web
+    name: aeb-nian
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    plan: free
+    buildFilter:
+      paths:
+        - server/**
+        - client/**
+        - supabase-public.json
+        - render.yaml
+
+  # CodeQuest Universe — คนละ service คนละ URL คนละโปรเซส
+  # แก้ไฟล์ของเกมนี้ก็ deploy เฉพาะตัวนี้ ไม่ไปรบกวนเกมแอบเนียน
+  - type: web
+    name: codequest-universe
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm run start:codequest
+    plan: free
+    envVars:
+      # ประกาศไว้ตรงนี้เพื่อให้ Render สร้างช่องรอไว้ในหน้า Environment ของ service นี้เอง
+      # จะได้ไม่ต้องเดาว่าต้องไปเพิ่มที่ service ไหน
+      # sync:false = ไม่เก็บค่าไว้ในไฟล์นี้ (มีรหัสผ่าน) ต้องกรอกในหน้าเว็บของ Render
+      # ปล่อยว่างไว้ก็ได้ เกมจะใช้ไฟล์เก็บชั่วคราวแทน
+      - key: DATABASE_URL
+        sync: false
+    buildFilter:
+      paths:
+        - codequest-universe.html
+        - server/codequest.js
+        - server/codequest-server.js
+        - server/accounts.js
+        - server/package.json
+        - render.yaml

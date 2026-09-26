@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>แอบเนียน (Aeb Nian) - Educational Edition</title>
+  <!-- Same rounded type as CodeQuest Universe: Fredoka for headings/UI,
+       Mali for Thai body copy (Fredoka has no Thai glyphs) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Mali:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Welcome Screen -->
+    <div id="welcomeScreen" class="screen active">
+      <!-- Drifting paint blobs behind the card -->
+      <div class="menu-bg" aria-hidden="true">
+        <span class="blob b1"></span>
+        <span class="blob b2"></span>
+        <span class="blob b3"></span>
+        <span class="blob b4"></span>
+      </div>
+
+      <div class="menu-card">
+        <div class="menu-hero">
+          <div class="menu-logo">🦎</div>
+          <h1>แอบเนียน</h1>
+          <p class="subtitle">Aeb Nian · เกมซ่อนแอบพรางตัว · สื่อการเรียนการสอน</p>
+          <div class="menu-feats">
+            <span>🎨 ทาสีพรางตัว</span>
+            <span>⚡ พลังพิเศษ</span>
+            <span>🧟 โดนจับแล้วเป็นผู้หา</span>
+            <span>🏆 หลายรอบ</span>
+          </div>
+        </div>
+
+        <div id="joinBanner" class="join-banner" style="display: none;"></div>
+
+        <div class="form-group">
+          <label for="usernameInput">👤 ชื่อผู้เล่น</label>
+          <input type="text" id="usernameInput" placeholder="ใส่ชื่อของคุณ" maxlength="20">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>📚 ชุดข้อสอบ</label>
+            <button type="button" id="questionSetBtn" class="picker-btn">📚 ทุกชุด (ทั้งหมด)</button>
+          </div>
+          <div class="form-group">
+            <label for="durationSelect">⏱️ ระยะเวลา</label>
+            <select id="durationSelect">
+              <option value="60">1 นาที</option>
+              <option value="120">2 นาที</option>
+              <option value="180">3 นาที</option>
+              <option value="300" selected>5 นาที</option>
+              <option value="600">10 นาที</option>
+              <option value="custom">⚙️ กำหนดเอง</option>
+            </select>
+            <div id="customDurationRow" style="display: none;">
+              <input type="number" id="customDuration" min="1" max="180" value="7" placeholder="นาที">
+              <span class="unit-label">นาที (1–180)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button id="createRoomBtn" class="btn btn-primary">🎮 สร้างห้อง</button>
+          <button id="joinRoomBtn" class="btn btn-secondary">🔑 เข้าห้อง</button>
+        </div>
+
+        <button id="manageQuestionsBtn" class="btn btn-ghost">⚙️ จัดการชุดข้อสอบ (สำหรับครู)</button>
+      </div>
+    </div>
+
+    <!-- Dimension-jump cutscene overlay (shown when the host presses Start) -->
+    <div id="dimensionJump" style="display: none;">
+      <div class="dj-stars"></div>
+      <div class="dj-warp"></div>
+      <div class="dj-portal">
+        <div class="dj-portal-ring"></div>
+        <div class="dj-portal-core"></div>
+      </div>
+      <div class="dj-flash"></div>
+      <div class="dj-title">🌀 กำลังข้ามมิติ...</div>
+    </div>
+
+    <!-- Question-set picker window -->
+    <div id="questionSetModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>📚 เลือกชุดข้อสอบ</h3>
+        </div>
+        <div class="modal-body">
+          <input type="text" id="questionSetSearch" class="picker-search" placeholder="🔍 ค้นหาชุดข้อสอบ...">
+          <div id="questionSetList" class="picker-list"></div>
+        </div>
+        <div class="modal-footer">
+          <button id="closeQuestionSetModal" class="btn btn-secondary">ปิด</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Room Setup Screen -->
+    <div id="roomSetupScreen" class="screen">
+      <div class="container">
+        <h2 id="roomTitle">Game Room</h2>
+
+        <div class="room-code">
+          <label>Room Code:</label>
+          <input type="text" id="roomCodeInput" readonly>
+          <button id="copyRoomCodeBtn" class="btn btn-small">Copy</button>
+        </div>
+
+        <div class="qr-display">
+          <label>สแกนเพื่อเข้าห้อง:</label>
+          <div id="roomQrCode"></div>
+        </div>
+
+        <!-- Live lobby preview: everyone's character bouncing around -->
+        <div class="lobby-preview">
+          <label>🎭 ผู้เล่นในห้อง (<span id="playersCount">0</span>)</label>
+          <canvas id="lobbyCanvas"></canvas>
+        </div>
+
+        <div class="players-list">
+          <h3>Players</h3>
+          <ul id="playersList"></ul>
+        </div>
+
+        <div class="role-selector" id="roleSelectorContainer" style="display: none;">
+          <label>Your Role:</label>
+          <div class="button-group">
+            <button id="roleHiderBtn" class="btn btn-small">Hider</button>
+            <button id="roleSeekerBtn" class="btn btn-small">Seeker</button>
+          </div>
+        </div>
+
+        <div class="map-selector" id="mapSelectorContainer" style="display: none;">
+          <label>🗺️ เลือกแมพ:</label>
+          <select id="mapSelect"></select>
+        </div>
+
+        <div id="waitingForHost" style="display: none;" class="waiting-note">
+          ⏳ รอเจ้าของห้องกดเริ่มเกม...
+        </div>
+
+        <div class="button-group">
+          <button id="startGameBtn" class="btn btn-primary" disabled>Start Game</button>
+          <button id="leaveRoomBtn" class="btn btn-danger">Leave Room</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="gameScreen" class="screen">
+      <div class="game-header">
+        <div class="timer">Time: <span id="timerDisplay">5:00</span></div>
+        <div class="score">Score: <span id="scoreDisplay">0</span></div>
+        <!-- Mobile-only toggles: collapse the paint toolbar + lobby panel so
+             they don't blanket the play area (see .paint-toolbar CSS) -->
+        <button id="paintToggleBtn" class="btn btn-small mobile-only" title="กล่องระบายสี">🎨</button>
+        <button id="lobbyToggleBtn" class="btn btn-small mobile-only" title="รายชื่อผู้เล่น">🎭 <span id="lobbyToggleCount">0</span></button>
+        <!-- Host-only: the room code stays reachable during the match so the
+             teacher can read it out to a student who joins late -->
+        <button id="roomCodeBtn" class="btn btn-small" title="รหัสห้อง / QR (สำหรับผู้สร้างห้อง)" style="display: none;">🔑 <span id="roomCodeBtnText"></span></button>
+        <!-- Host-only: step out of the match and monitor the whole class -->
+        <button id="overviewBtn" class="btn btn-small" title="โหมดมอนิเตอร์ (ดูภาพรวม สำหรับผู้สร้างห้อง)" style="display: none;">🖥️</button>
+        <button id="soundToggleBtn" class="btn btn-small">🔊</button>
+        <button id="fullscreenBtn" class="btn btn-small" title="เต็มหน้าจอ">⛶</button>
+        <button id="adminPanelBtn" class="btn btn-small">Admin</button>
+      </div>
+
+      <!-- Paint Toolbar (Hider only) -->
+      <div id="paintToolbar" class="paint-toolbar" style="display: none;">
+        <span class="tool-label">🎨 สี:</span>
+        <input type="color" id="colorPicker" value="#e74c3c" title="เลือกสีอิสระ">
+        <div id="colorPalette" class="color-palette"></div>
+        <span class="tool-label">พู่กัน:</span>
+        <input type="range" id="brushSize" min="4" max="40" value="14">
+        <span class="brush-size-preview" title="ขนาดพู่กัน"><span id="brushDot"></span></span>
+        <span class="tool-label" id="brushSizeNum">14</span>
+        <button id="eyedropperBtn" class="btn btn-small">💉 ดูดสี (F)</button>
+        <button id="paintAllBtn" class="btn btn-small">🪣 ทาทั้งตัว</button>
+        <button id="clearPaintBtn" class="btn btn-small">ล้างสี</button>
+        <button id="askQuestionBtn" class="btn btn-small">❓ ตอบคำถามรับพลังงาน ⚡</button>
+        <span class="tool-label">🧍 คลิกขวา = เลือกท่าโพส</span>
+      </div>
+
+      <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Brush cursor ring (follows the pointer while painting is allowed) -->
+        <div id="brushCursor" style="display: none;"></div>
+
+        <!-- Radial pose wheel (right-click, Hider only) -->
+        <div id="poseWheel" style="display: none;">
+          <div class="pose-wheel-center">เลือกท่า</div>
+        </div>
+
+        <!-- HUD overlays (over the 3D canvas) -->
+        <div id="crosshair"></div>
+
+        <!-- Host-only room code + QR, on demand during the match. Collapsed by
+             default (just the 🔑 header button) so it never crowds the play
+             area — the teacher taps it to show a student how to get in. -->
+        <div id="roomCodePanel" style="display: none;">
+          <div class="rc-head">
+            <span>🔑 รหัสห้อง</span>
+            <button id="roomCodeClose" class="btn btn-small" title="ปิด">✕</button>
+          </div>
+          <div id="roomCodeBig"></div>
+          <div id="roomCodeQr"></div>
+          <div class="rc-foot">ให้คนมาสายสแกน QR หรือกรอกรหัสนี้ที่ปุ่ม “🔑 เข้าห้อง” — เข้าได้เลยแม้เกมเริ่มไปแล้ว (จะได้เป็นผู้ซ่อน)</div>
+        </div>
+
+        <!-- Host monitor dashboard (host only, while monitoring) -->
+        <div id="monitorPanel" style="display: none;">
+          <div class="mon-head">
+            <span>🖥️ มอนิเตอร์ห้อง</span>
+            <span id="monRound" class="mon-round"></span>
+          </div>
+          <div class="mon-stats">
+            <div class="mon-stat"><span id="monHiders">0</span><small>🫥 ผู้ซ่อน</small></div>
+            <div class="mon-stat"><span id="monSeekers">0</span><small>🔫 ผู้หา</small></div>
+            <div class="mon-stat"><span id="monCaught">0</span><small>🚨 โดนจับ</small></div>
+            <div class="mon-stat"><span id="monTime">--</span><small>⏱️ เวลา</small></div>
+          </div>
+          <div id="monList" class="mon-list"></div>
+          <div class="mon-foot">👁️ คุณกำลังดูภาพรวม — ไม่ได้ร่วมเล่น · แตะ 🖥️ อีกครั้งเพื่อกลับไปเล่น</div>
+        </div>
+        <div id="hideStatus">🫥 ซ่อนตัวต่อไป!</div>
+        <div id="remainingCount">
+          <span class="rc-label">ผู้เล่นเหลือ</span>
+          <span id="remainingNumber">1</span>
+        </div>
+
+        <!-- Lobby HUD: player list + QR + Start button (before the match starts) -->
+        <div id="lobbyHud" style="display: none;">
+          <div id="lobbyPanel">
+            <h3>🎭 ผู้เล่นในห้อง (<span id="lobbyCount">0</span>)</h3>
+            <ul id="lobbyPlayerList"></ul>
+            <div id="lobbyMapPickerBox" style="display: none;">
+              <label>🗺️ เลือกแมพ:</label>
+              <select id="lobbyMapSelect"></select>
+            </div>
+            <div id="lobbyQrBox">
+              <label>สแกนเข้าห้อง:</label>
+              <div id="lobbyQr"></div>
+              <div class="lobby-room-code">รหัสห้อง: <b id="lobbyRoomCode"></b></div>
+            </div>
+          </div>
+          <!-- How to play, shown while everyone waits for the host to start -->
+          <div id="lobbyTips">
+            <div class="tip-head">
+              <span>📖 วิธีเล่น</span>
+              <span id="tipCount" class="tip-count"></span>
+              <!-- On a phone this card covers the room QR and the player list,
+                   so it has to be dismissible -->
+              <button type="button" id="tipClose" class="tip-close" title="ปิดวิธีเล่น" aria-label="ปิดวิธีเล่น">✕</button>
+            </div>
+            <div id="tipBody" class="tip-body"></div>
+            <div class="tip-nav">
+              <button type="button" id="tipPrev" class="tip-btn">◀</button>
+              <div id="tipDots" class="tip-dots"></div>
+              <button type="button" id="tipNext" class="tip-btn">▶</button>
+            </div>
+            <div class="tip-hint">💡 ลองทำตามได้เลยระหว่างรอ — เดิน ทาสี เลือกท่าได้ในห้องนี้</div>
+          </div>
+
+          <div id="lobbyBottomBar">
+            <button id="lobbyStartBtn" class="btn btn-primary">🎮 เริ่มเกม</button>
+            <div id="lobbyWaiting">⏳ รอเจ้าของห้องกดเริ่มเกม...</div>
+          </div>
+        </div>
+        <div id="controlHints">
+          <div><span class="hud-key">WASD</span> เดิน (กล้องตามเอง)</div>
+          <div><span class="hud-key">Space</span> กระโดด · ดันกำแพงค้าง = ปีน</div>
+          <div><span class="hud-key">Q / E</span> หมุนกล้อง</div>
+          <div><span class="hud-key">ลูกกลิ้ง</span> ซูม</div>
+          <div><span class="hud-key">ลากบนตัว</span> วาดลาย</div>
+          <div><span class="hud-key">F</span> ดูดสีจากฉาก</div>
+          <div><span class="hud-key">คลิกขวา</span> เลือกท่าโพส</div>
+        </div>
+
+        <!-- Red edge glow that swells as a seeker closes in (hiders only) -->
+        <div id="dangerVignette"></div>
+
+        <!-- 🦎 Camouflage quality: how well your paint matches your hiding spot -->
+        <div id="blendMeter" style="display: none;">
+          <span class="blend-icon">🦎</span>
+          <div class="blend-track"><div id="blendFill"></div></div>
+          <span id="blendText">0%</span>
+        </div>
+
+        <!-- 📡 Danger radar: shows where the nearest opponent is while active -->
+        <div id="radarHud" style="display: none;">
+          <div id="radarArrow">▲</div>
+          <div id="radarDist"></div>
+        </div>
+
+        <!-- Touch controls (mobile only) -->
+        <div id="mobileControls" style="display: none;">
+          <!-- Touch anywhere in the lower-left to summon the joystick there -->
+          <div id="joyZone"></div>
+          <div id="joystick"><div id="joystickKnob"></div></div>
+          <div id="mobButtons">
+            <button id="mobZoomOut" class="mob-btn mob-cam">－</button>
+            <button id="mobZoomIn" class="mob-btn mob-cam">＋</button>
+            <button id="mobRotL" class="mob-btn mob-cam">◀</button>
+            <button id="mobRotR" class="mob-btn mob-cam">▶</button>
+            <button id="mobJump" class="mob-btn">⤒<span>กระโดด/ปีน</span></button>
+            <button id="mobAction" class="mob-btn mob-action">🔫<span>ยิง</span></button>
+          </div>
+          <!-- Always-reachable buttons: answering questions must not be buried
+               in the paint toolbar, and painting needs an explicit mode on
+               touch so swiping to look around doesn't smear paint on yourself -->
+          <div id="mobLeftButtons">
+            <button id="mobQuestion" class="mob-btn mob-quiz">❓<span>คำถาม</span></button>
+            <button id="mobPaint" class="mob-btn mob-paint">🖌️<span>ทาสี</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="game-info">
+        <div id="roleInfo"></div>
+        <div id="powersList" class="powers-list"></div>
+        <!-- Special abilities, bought with energy earned by answering questions -->
+        <div class="ability-panel">
+          <div class="ability-head" id="abilityHead">
+            <span class="ability-title">⚡ ความสามารถพิเศษ</span>
+            <span id="energyCount" class="energy-count">⚡ 0</span>
+            <span class="ability-caret">▾</span>
+          </div>
+          <div id="abilityBar" class="ability-bar"></div>
+          <div class="ability-hint">ตอบคำถามถูกเพื่อรับพลังงาน</div>
+        </div>
+      </div>
+
+      <!-- Question Modal -->
+      <div id="questionModal" class="modal" style="display: none;">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>ตอบคำถาม</h3>
+          </div>
+          <div class="modal-body">
+            <div id="questionContent"></div>
+          </div>
+          <div class="modal-footer">
+            <button id="submitAnswerBtn" class="btn btn-primary">ส่งคำตอบ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameOverScreen" class="screen">
+      <div class="container">
+        <h2 id="gameResultTitle">Game Over</h2>
+
+        <div class="results">
+          <div id="resultsList"></div>
+        </div>
+
+        <div class="button-group">
+          <button id="playAgainBtn" class="btn btn-primary">Play Again</button>
+          <button id="backToMenuBtn" class="btn btn-secondary">Back to Menu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="sounds.js"></script>
+  <script src="websocket-client.js"></script>
+  <script src="game.js"></script>
+  <script src="questions.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>

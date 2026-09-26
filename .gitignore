@@ -1,0 +1,7 @@
+node_modules/
+database/
+tools/
+*.log
+.claude/
+_qcheck.json
+server/accounts.json

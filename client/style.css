@@ -1,0 +1,2313 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ===== Design tokens, shared with CodeQuest Universe =====
+   Deep teal "ink" darks, white paper panels and a candy accent set, so the two
+   apps read as one family. Components below pull from these rather than
+   hard-coding colours, which is what lets the whole UI be retuned at once. */
+:root {
+  --ink: #123043;
+  --ink-2: #2b4d63;
+  --paper: #fff;
+  --amber: #ffc22e;
+  --coral: #ff7a59;
+  --violet: #7b5cff;
+  --cyan: #25d9d9;
+  --rose: #ff5d8f;
+  --panel: rgba(255, 255, 255, .95);
+  --glass: rgba(10, 38, 50, .55);
+  --shadow: 0 10px 30px rgba(6, 32, 45, .28);
+  --radius-pill: 99px;
+  --radius-card: 16px;
+  /* Button faces: a light-to-dark vertical ramp of one hue */
+  --g-amber: linear-gradient(180deg, #ffd45e, #f2a103);
+  --g-violet: linear-gradient(180deg, #b3a4ff, #7b5cff);
+  --g-rose: linear-gradient(180deg, #ff8fb0, #ef4a76);
+  --g-cyan: linear-gradient(180deg, #54c0ff, #2b8fe0);
+  --g-green: linear-gradient(180deg, #7ee08a, #34a853);
+  --g-ink: linear-gradient(180deg, #0e3c4c, #07222c);
+}
+
+body {
+  /* Fredoka carries the Latin/UI, Mali the Thai (Fredoka has no Thai glyphs) */
+  font-family: 'Fredoka', 'Mali', 'Segoe UI', Tahoma, sans-serif;
+  background: linear-gradient(160deg, #14415a 0%, #0d2b3c 55%, #07222c 100%);
+  min-height: 100vh;
+  color: var(--ink);
+}
+
+#app {
+  width: 100%;
+  height: 100vh;
+}
+
+.screen {
+  display: none;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+.screen.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.container {
+  background: white;
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 90%;
+}
+
+/* ===== Main menu card ===== */
+/* ===== Welcome screen: paint blobs drifting behind the card ===== */
+.menu-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.menu-bg .blob {
+  position: absolute;
+  border-radius: 46% 54% 58% 42% / 52% 46% 54% 48%;
+  filter: blur(2px);
+  opacity: 0.5;
+  animation: blobDrift 18s ease-in-out infinite;
+}
+
+.menu-bg .b1 { width: 240px; height: 240px; left: -60px;  top: 12%;  background: #25d9d9; animation-delay: -2s; }
+.menu-bg .b2 { width: 190px; height: 190px; right: -40px; top: 8%;   background: #ff5d8f; animation-delay: -7s; }
+.menu-bg .b3 { width: 300px; height: 300px; right: 6%;    bottom: -90px; background: #7b5cff; animation-delay: -12s; }
+.menu-bg .b4 { width: 160px; height: 160px; left: 12%;    bottom: -40px; background: #ffc22e; animation-delay: -4s; }
+
+@keyframes blobDrift {
+  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  33%      { transform: translate(22px, -26px) rotate(60deg) scale(1.08); }
+  66%      { transform: translate(-18px, 18px) rotate(140deg) scale(0.95); }
+}
+
+.menu-card {
+  position: relative;
+  z-index: 1;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 28px;
+  box-shadow: var(--shadow), 0 0 0 6px rgba(255, 255, 255, 0.1);
+  max-width: 560px;
+  width: 92%;
+  padding: 34px 40px 28px;
+  animation: menuPop 0.4s ease;
+}
+
+/* What the game offers, at a glance */
+.menu-feats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.menu-feats span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  background: rgba(37, 217, 217, 0.14);
+  border: 1px solid rgba(18, 48, 67, 0.14);
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+}
+@keyframes menuPop {
+  from { opacity: 0; transform: translateY(18px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.menu-hero {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.menu-logo {
+  font-size: 56px;
+  line-height: 1;
+  filter: drop-shadow(0 6px 10px rgba(102, 126, 234, 0.4));
+  animation: bob 3s ease-in-out infinite;
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.menu-hero h1 {
+  font-size: 40px;
+  margin: 10px 0 4px;
+  background: linear-gradient(135deg, #667eea, #a855c8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.form-row {
+  display: flex;
+  gap: 14px;
+}
+.form-row .form-group {
+  flex: 1;
+}
+#questionSetSelect,
+#durationSelect {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e2e2ef;
+  border-radius: 10px;
+  font-size: 15px;
+  cursor: pointer;
+  background: #fafaff;
+  transition: border-color 0.15s;
+}
+#questionSetSelect:focus,
+#durationSelect:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+/* Welcome-screen inputs: chunkier, with a soft focus glow so it feels like a
+   game lobby rather than a form */
+.menu-card input[type="text"],
+.menu-card select,
+.menu-card .picker-btn {
+  border-radius: 14px;
+  padding: 13px 14px;
+  font-size: 15px;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+
+.menu-card input[type="text"]:focus,
+.menu-card select:focus,
+.menu-card .picker-btn:focus {
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.18);
+}
+
+.menu-card .picker-btn:hover { transform: translateY(-1px); }
+
+.menu-card label {
+  font-weight: 700;
+  color: #4a4a63;
+  letter-spacing: 0.2px;
+}
+
+/* Primary action gets the weight — this is the button most people want */
+.menu-card .button-group { gap: 12px; }
+
+.menu-card .btn-primary,
+.menu-card .btn-secondary {
+  padding: 15px 18px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.btn-ghost {
+  width: 100%;
+  margin-top: 14px;
+  background: transparent;
+  color: var(--ink-2);
+  border: 2px dashed rgba(18, 48, 67, 0.28);
+  padding: 12px;
+  border-radius: var(--radius-pill);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-ghost:hover {
+  background: rgba(37, 217, 217, 0.12);
+}
+
+h1 {
+  font-size: 48px;
+  color: var(--ink);
+  text-align: center;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+
+.subtitle {
+  text-align: center;
+  color: #666;
+  margin-bottom: 30px;
+  font-size: 16px;
+}
+
+h2, h3, h4 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #333;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+textarea,
+select {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.3s;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 30px;
+  flex-wrap: wrap;
+}
+
+/* Pill buttons with a vertical gradient face — CodeQuest's signature control.
+   The darker bottom edge reads as a lip, so they look pressable without an
+   extra border. */
+.btn {
+  padding: 12px 26px;
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+  flex: 1;
+  min-width: 150px;
+  background: var(--g-cyan);
+  box-shadow: 0 4px 0 rgba(6, 32, 45, .22), var(--shadow);
+}
+
+.btn:hover { transform: translateY(-2px); filter: brightness(1.06); }
+/* Press it into its own lip rather than just recolouring */
+.btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(6, 32, 45, .22); }
+
+.btn-primary { background: var(--g-amber); color: #4a2c00; }
+.btn-secondary { background: var(--g-violet); }
+.btn-danger { background: var(--g-rose); }
+
+.btn-small {
+  padding: 8px 16px;
+  font-size: 14px;
+  min-width: auto;
+  flex: none;
+  box-shadow: 0 3px 0 rgba(6, 32, 45, .2);
+}
+
+/* Room Setup */
+.room-code {
+  background: #f5f5f5;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.room-code input {
+  flex: 1;
+  background: white;
+  font-size: 20px;
+  font-weight: bold;
+  text-align: center;
+  letter-spacing: 4px;
+}
+
+.map-selector {
+  background: #f5f5f5;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.map-selector label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+#mapSelect {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.qr-display {
+  background: #f5f5f5;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.qr-display #roomQrCode {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 10px;
+  background: white;
+  border-radius: 8px;
+}
+
+.qr-display #roomQrCode img,
+.qr-display #roomQrCode canvas {
+  display: block;
+}
+
+.join-banner {
+  background: #c8e6c9;
+  border-left: 4px solid #4caf50;
+  padding: 12px 15px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+#qrReader {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.players-list {
+  background: #f5f5f5;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+/* Cap the visible list to ~10 rows and let the rest scroll — so the QR
+   code above stays in view no matter how many players join */
+.players-list ul {
+  list-style: none;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.players-list li {
+  padding: 10px;
+  background: white;
+  margin-bottom: 6px;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Lobby preview panel: mini 3D scene of everyone in the room */
+.lobby-preview {
+  background: #1a1a2e;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+.lobby-preview label {
+  display: block;
+  color: #fff;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+#lobbyCanvas {
+  display: block;
+  width: 100%;
+  height: 200px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #a3c4ea 0%, #d9ecc6 100%);
+}
+
+.waiting-note {
+  text-align: center;
+  padding: 14px;
+  background: #fff8e1;
+  border-left: 4px solid #ffb300;
+  border-radius: 6px;
+  color: #7a5a00;
+  font-weight: 700;
+  margin-bottom: 20px;
+  font-size: 15px;
+}
+
+.role-selector {
+  background: #f5f5f5;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+/* Game Screen */
+#gameScreen {
+  background: #1a1a2e;
+  z-index: 10;
+}
+
+/* Full-window 3D: the game container fills the screen and the header /
+   toolbar / info bars float on top as HUD (no letterboxing on desktop) */
+#gameScreen.active {
+  display: block;
+  position: relative;
+}
+
+.game-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: linear-gradient(180deg, rgba(6, 30, 42, .78), rgba(6, 30, 42, .5));
+  backdrop-filter: blur(4px);
+  color: white;
+  padding: 10px 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.game-header .timer, .game-header .score { white-space: nowrap; }
+/* Header buttons must keep their natural width — .btn { flex: 1 } was
+   stretching each one to fill the header, pushing everyone off-screen */
+.game-header .btn { flex: 0 0 auto; }
+
+.timer, .score {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.game-container {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* ===== In-game HUD overlays ===== */
+/* 45% matches where shootCenter() actually fires — at 50% the reticle sat
+   below the real aim point, which made every shot feel slightly off */
+#crosshair {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0.7;
+}
+#crosshair::before,
+#crosshair::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 255, 255, 0.85);
+}
+#crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+#crosshair::after { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+
+/* Target locked: crosshair flares red and grows a ring */
+#crosshair.locked {
+  opacity: 1;
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%) scale(1.15);
+}
+#crosshair.locked::before,
+#crosshair.locked::after { background: #ff3b30; box-shadow: 0 0 6px #ff3b30; }
+#crosshair.locked::marker { display: none; }
+
+/* Touch: fatter reticle so it reads on a phone at arm's length */
+body.touch-device #crosshair { width: 30px; height: 30px; opacity: 0.85; }
+body.touch-device #crosshair.locked { width: 40px; height: 40px; }
+
+#hideStatus {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+#remainingCount {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  color: #fff;
+  text-align: right;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+#remainingCount .rc-label { display: block; font-size: 13px; opacity: 0.9; }
+#remainingNumber { font-size: 40px; font-weight: 800; line-height: 1; }
+
+#controlHints {
+  position: absolute;
+  right: 16px;
+  top: 14px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.9;
+  pointer-events: none;
+}
+.hud-key {
+  display: inline-block;
+  background: #ffd54f;
+  color: #222;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+#gameCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.game-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 15;
+  background: rgba(0, 0, 0, 0.42);
+  color: white;
+  padding: 8px 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+.game-info > * { pointer-events: auto; }
+
+/* Paint Toolbar */
+.paint-toolbar {
+  position: absolute;
+  top: 48px; /* just under the floating game-header */
+  left: 0;
+  right: 0;
+  z-index: 18;
+  background: var(--glass);
+  backdrop-filter: blur(4px);
+  color: white;
+  padding: 10px 15px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tool-label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.color-palette {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Brush-size preview swatch in the toolbar: a filled dot whose diameter
+   tracks the slider so you can see how big the brush is */
+.brush-size-preview {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+#brushDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e74c3c;
+  transition: width 0.08s, height 0.08s;
+}
+#brushSizeNum {
+  min-width: 22px;
+  text-align: center;
+  color: #ffd54a;
+}
+
+/* On-canvas brush cursor: a ring that follows the pointer and sizes to the
+   brush, so painting has clear where/how-big feedback */
+#brushCursor {
+  position: absolute;
+  z-index: 12;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(0, 0, 0, 0.4);
+  transition: width 0.06s, height 0.06s;
+}
+#brushCursor.on-body { border-color: #fff; }
+
+#colorPicker {
+  width: 44px;
+  height: 34px;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  vertical-align: middle;
+}
+#colorPicker::-webkit-color-swatch-wrapper { padding: 2px; }
+#colorPicker::-webkit-color-swatch { border: none; border-radius: 5px; }
+
+.swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: transform 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.swatch:hover {
+  transform: scale(1.15);
+}
+
+.swatch.selected {
+  border-color: #fff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+}
+
+.swatch.locked {
+  cursor: not-allowed;
+  opacity: 0.4;
+  filter: grayscale(0.7);
+}
+
+/* ===== Radial pose wheel (right-click) ===== */
+/* Full-screen dim behind the pose wheel; tap it to close. Above the mobile
+   controls (z-index 40) so a stray joystick touch can't sit on top of it. */
+#poseBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 55;
+}
+#poseWheel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 340px;
+  height: 340px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(20, 20, 30, 0.55) 55%, rgba(20, 20, 30, 0.85) 100%);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+  z-index: 60; /* above #mobileControls so pose buttons stay tappable */
+  animation: wheelPop 0.15s ease;
+}
+/* While the wheel is open, the joystick zone must not eat pose-button taps */
+#mobileControls.posing #joyZone { pointer-events: none; }
+
+@keyframes wheelPop {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.pose-wheel-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
+.pose-wheel-btn {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.95);
+  color: #222;
+  border: none;
+  border-radius: 22px;
+  padding: 11px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition: transform 0.12s, background 0.12s;
+}
+.pose-wheel-btn:active { background: #4ac8d6; color: #fff; }
+
+.pose-wheel-btn:hover {
+  background: #4ac8d6;
+  color: #fff;
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+.pose-btn:hover {
+  background: #465c74;
+}
+
+.pose-btn.active {
+  background: #667eea;
+  box-shadow: 0 0 8px rgba(102, 126, 234, 0.7);
+}
+
+.powers-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.power-badge {
+  background: #4caf50;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+/* ===== Special abilities panel (bought with energy from correct answers) ===== */
+.ability-panel {
+  margin-top: 10px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 10px;
+}
+
+.ability-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.ability-title { font-size: 13px; font-weight: 700; opacity: 0.9; }
+
+.energy-count {
+  background: linear-gradient(135deg, #f6c744, #f0932b);
+  color: #3a2c00;
+  font-weight: 800;
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.ability-bar { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.ability-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 62px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.15s, border-color 0.15s;
+}
+
+.ability-btn .ab-icon { font-size: 18px; }
+.ability-btn .ab-name { font-weight: 600; text-align: center; }
+.ability-btn .ab-cost { font-size: 10px; opacity: 0.85; }
+
+/* Affordable right now — glows so it's obvious what you can spend on */
+.ability-btn.affordable {
+  background: rgba(76, 175, 80, 0.28);
+  border-color: rgba(120, 230, 130, 0.65);
+}
+.ability-btn.affordable:hover {
+  transform: translateY(-2px);
+  background: rgba(76, 175, 80, 0.42);
+}
+
+.ability-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Currently running — pulsing outline + seconds remaining */
+.ability-btn.active {
+  border-color: #ffd54f;
+  background: rgba(255, 213, 79, 0.28);
+  animation: abilityPulse 1s ease-in-out infinite;
+  opacity: 1;
+}
+
+.ability-btn .ab-timer {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #ffd54f;
+  color: #3a2c00;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 9px;
+}
+
+@keyframes abilityPulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(255, 213, 79, 0.5); }
+  50%      { box-shadow: 0 0 12px rgba(255, 213, 79, 0.95); }
+}
+
+.ability-hint { margin-top: 7px; font-size: 11px; opacity: 0.65; }
+
+/* The expand caret only appears on touch, where the panel collapses to a pill */
+.ability-caret { display: none; }
+
+/* Header toggle that's currently on (e.g. the teacher overview) */
+.game-header .btn.btn-small.active {
+  background: #2ecc71;
+  color: #08130c;
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.8);
+}
+
+/* ===== Host monitor mode ===== */
+/* Watching, not playing — drop every player-facing control so the host gets a
+   clean overview. This is also the answer to the cluttered mobile screen. */
+body.monitor-mode #mobileControls,
+body.monitor-mode .paint-toolbar,
+body.monitor-mode .ability-panel,
+body.monitor-mode #blendMeter,
+body.monitor-mode #radarHud,
+body.monitor-mode #remainingCount,
+body.monitor-mode #crosshair,
+body.monitor-mode #dangerVignette,
+body.monitor-mode .powers-list,
+body.monitor-mode #paintToggleBtn,
+body.monitor-mode #controlHints,
+body.monitor-mode #hideStatus {
+  display: none !important;
+}
+
+#monitorPanel {
+  position: absolute;
+  top: 54px;
+  right: 12px;
+  z-index: 60;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(14, 50, 66, .94), rgba(7, 34, 44, .96));
+  border: 1px solid rgba(120, 200, 255, 0.4);
+  color: #fff;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.mon-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 800;
+  font-size: 15px;
+  margin-bottom: 10px;
+}
+.mon-round { font-size: 12px; font-weight: 700; opacity: 0.8; }
+
+.mon-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.mon-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 7px 2px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 9px;
+}
+.mon-stat span { font-size: 19px; font-weight: 800; line-height: 1; }
+.mon-stat small { font-size: 9.5px; opacity: 0.8; margin-top: 3px; }
+
+.mon-list { display: flex; flex-direction: column; gap: 4px; }
+.mon-row {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+}
+.mon-row .m-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mon-row .m-sc { font-weight: 800; opacity: 0.85; }
+.mon-row.caught { opacity: 0.5; }
+.mon-row.away { opacity: 0.45; font-style: italic; }
+
+.mon-foot { margin-top: 10px; font-size: 11px; opacity: 0.7; line-height: 1.4; }
+
+/* Tablet/desktop: give the dashboard a bit more room */
+@media (min-width: 760px) {
+  #monitorPanel { width: 340px; }
+}
+
+/* ===== Host room-code + QR popover (during the match) ===== */
+#roomCodePanel {
+  position: absolute;
+  top: 54px;
+  right: 12px;
+  z-index: 61;              /* above the monitor panel so both can be open */
+  width: 232px;
+  max-width: calc(100vw - 24px);
+  padding: 12px 14px 11px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(14, 50, 66, .95), rgba(7, 34, 44, .97));
+  border: 1px solid rgba(255, 214, 102, 0.5);
+  color: #fff;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.rc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 14px;
+  margin-bottom: 9px;
+  white-space: nowrap;      /* "🔑 รหัสห้อง" must not wrap around the ✕ */
+}
+.rc-head .btn { padding: 2px 8px; font-size: 12px; flex: 0 0 auto; }
+
+#roomCodeBig {
+  font-size: 25px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #ffd666;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 9px;
+  padding: 7px 6px;
+  margin-bottom: 9px;
+  word-break: break-all;
+}
+
+/* The QR library injects its own <img>/<canvas> — force it to fit the panel */
+#roomCodeQr {
+  display: flex;
+  justify-content: center;
+  background: #fff;
+  border-radius: 9px;
+  padding: 7px;
+  min-height: 40px;
+}
+#roomCodeQr img, #roomCodeQr canvas { display: block; width: 150px; height: 150px; }
+
+.rc-foot { margin-top: 9px; font-size: 10.5px; opacity: 0.75; line-height: 1.45; }
+
+/* The code on the header button: readable but never wide enough to push the
+   other controls off a phone header */
+#roomCodeBtnText {
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  max-width: 92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: bottom;
+}
+/* Phones: the header is tight — show just the 🔑 icon, the panel has the code */
+body.touch-device #roomCodeBtnText { display: none; }
+/* ...and keep the popover itself compact so it doesn't blanket the play area */
+body.touch-device #roomCodePanel { width: 200px; padding: 10px 11px 9px; }
+body.touch-device #roomCodeBig { font-size: 20px; letter-spacing: 1px; }
+body.touch-device #roomCodeQr img, body.touch-device #roomCodeQr canvas { width: 124px; height: 124px; }
+
+/* ===== Lobby how-to-play cards ===== */
+#lobbyTips {
+  position: absolute;
+  left: 16px;
+  bottom: 84px;
+  z-index: 30;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(18, 20, 34, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fff;
+  pointer-events: auto;
+}
+
+.tip-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.85;
+  margin-bottom: 8px;
+}
+/* The count sits between the title and the ✕, not hard against it */
+.tip-head .tip-count { margin-left: auto; }
+.tip-close {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;   /* the lobby HUD above it is pointer-events: none */
+}
+.tip-close:hover { background: rgba(255, 255, 255, 0.26); }
+/* Bigger target on touch — this is the button that gets the card off the QR */
+body.touch-device .tip-close { width: 36px; height: 36px; font-size: 16px; }
+
+.tip-count { font-size: 11px; opacity: 0.7; }
+
+.tip-body { display: flex; gap: 11px; align-items: flex-start; min-height: 72px; }
+.tip-icon { font-size: 30px; line-height: 1; }
+.tip-title { font-weight: 800; font-size: 14px; margin-bottom: 3px; }
+.tip-text { font-size: 12.5px; line-height: 1.45; opacity: 0.9; }
+
+.tip-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 9px;
+}
+
+.tip-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  color: #fff;
+  width: 30px;
+  height: 26px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.tip-btn:hover { background: rgba(255, 255, 255, 0.24); }
+
+.tip-dots { display: flex; gap: 5px; }
+.tip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+}
+.tip-dot.on { background: #7bed9f; }
+
+.tip-hint { margin-top: 8px; font-size: 11px; opacity: 0.65; }
+
+/* Phones: park it above the bottom bar and slim it down */
+body.touch-device #lobbyTips {
+  left: 8px;
+  right: 8px;
+  width: auto;
+  bottom: 74px;
+  padding: 9px 11px;
+}
+body.touch-device .tip-body { min-height: 60px; }
+body.touch-device .tip-text { font-size: 11.5px; }
+body.touch-device .tip-hint { display: none; }
+
+/* ===== Between-round standings ===== */
+#roundBoard {
+  position: absolute;
+  inset: 0;
+  z-index: 90;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 10, 20, 0.82);
+}
+
+.round-box {
+  min-width: 300px;
+  max-width: 92%;
+  max-height: 86%;
+  overflow-y: auto;
+  padding: 20px 24px;
+  border-radius: 16px;
+  background: rgba(24, 28, 46, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fff;
+  text-align: center;
+}
+
+.round-box h3 { margin: 0 0 14px; font-size: 20px; }
+
+.round-rows { display: flex; flex-direction: column; gap: 5px; }
+
+.round-row {
+  display: grid;
+  grid-template-columns: 26px 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 14px;
+}
+
+/* Your own line stands out in the list */
+.round-row.me { background: rgba(102, 126, 234, 0.42); font-weight: 700; }
+.round-row .rk { opacity: 0.7; }
+.round-row .nm { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.round-row .gn { color: #7bed9f; font-weight: 700; }
+.round-row .tt { min-width: 44px; text-align: right; font-weight: 800; }
+
+.round-note { margin-top: 14px; font-size: 13px; opacity: 0.8; }
+
+/* ===== Camouflage quality meter (hiders) ===== */
+/* Bottom-left, just above the info bar. Anchoring to the bottom keeps it out
+   of the top stack entirely (header + paint toolbar, which wraps and changes
+   height) and away from the control hints on the right. */
+#blendMeter {
+  position: absolute;
+  bottom: 112px;
+  left: 14px;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 20px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.blend-icon { font-size: 15px; }
+
+.blend-track {
+  width: 76px;
+  height: 8px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+}
+
+/* Red = you stand out, green = you melt into the scenery */
+#blendFill {
+  height: 100%;
+  width: 0;
+  border-radius: 5px;
+  background: #e74c3c;
+  transition: width 0.25s, background 0.25s;
+}
+
+#blendMeter.good #blendFill { background: #f1c40f; }
+#blendMeter.great #blendFill { background: #2ecc71; }
+#blendMeter.great { box-shadow: 0 0 12px rgba(46, 204, 113, 0.7); }
+
+/* ===== Danger vignette: a seeker is closing in ===== */
+#dangerVignette {
+  position: absolute;
+  inset: 0;
+  z-index: 44;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s;
+  box-shadow: inset 0 0 120px 40px rgba(231, 30, 30, 0.75);
+}
+
+/* ===== Danger radar overlay ===== */
+/* Left edge, mid-height — clear of #hideStatus (top-centre) and the header */
+#radarHud {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 14px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 90, 90, 0.6);
+  border-radius: 12px;
+  color: #ff8a80;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+#radarArrow { font-size: 22px; line-height: 1; transition: transform 0.12s linear; }
+#radarDist { font-size: 12px; }
+
+/* Opponent is close — flash a warning */
+#radarHud.danger {
+  border-color: #ff1744;
+  color: #ff5252;
+  animation: radarWarn 0.6s ease-in-out infinite;
+}
+
+@keyframes radarWarn {
+  0%, 100% { box-shadow: 0 0 6px rgba(255, 23, 68, 0.5); }
+  50%      { box-shadow: 0 0 18px rgba(255, 23, 68, 0.95); }
+}
+
+#gameCanvas {
+  cursor: crosshair;
+}
+
+/* ===== Mobile touch controls ===== */
+#mobileControls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+}
+/* Lower-left touch zone: tap anywhere here and the stick jumps to your thumb */
+#joyZone {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 45%;
+  height: 65%;
+  pointer-events: auto;
+  touch-action: none;
+}
+#joystick {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  pointer-events: auto;
+  touch-action: none;
+}
+#joystickKnob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 60px;
+  height: 60px;
+  margin: -30px 0 0 -30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+#mobButtons {
+  position: absolute;
+  right: 16px;
+  bottom: 24px;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 14px;
+  align-items: end;
+  justify-items: end;
+  pointer-events: none;
+}
+.mob-btn {
+  pointer-events: auto;
+  touch-action: none;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font-size: 26px;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  user-select: none;
+}
+.mob-btn span { font-size: 11px; font-weight: 600; margin-top: 2px; }
+.mob-btn:active { background: rgba(102, 126, 234, 0.7); }
+.mob-cam { width: 64px; height: 64px; font-size: 24px; background: rgba(0, 0, 0, 0.3); }
+.mob-action { background: rgba(231, 76, 60, 0.55); }
+
+/* Question + paint-mode buttons, stacked above the joystick on the left so
+   they're always reachable (the quiz button used to hide in the paint
+   toolbar, which is collapsed on phones and hider-only) */
+/* Upper-left, clear of the joystick summon zone (which owns the lower left) */
+#mobLeftButtons {
+  position: absolute;
+  left: 12px;
+  top: 108px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+#mobLeftButtons .mob-btn { width: 64px; height: 64px; font-size: 22px; }
+#mobLeftButtons .mob-btn span { font-size: 9px; }
+.mob-quiz { background: rgba(103, 126, 234, 0.6); }
+.mob-paint { background: rgba(0, 0, 0, 0.4); }
+/* Paint mode on: drags on your body paint instead of turning the camera */
+.mob-paint.on {
+  background: rgba(46, 204, 113, 0.75);
+  border-color: #7bed9f;
+  box-shadow: 0 0 12px rgba(46, 204, 113, 0.8);
+}
+
+/* ===== In-game lobby HUD (before the host presses start) ===== */
+/* When the lobby HUD is up, hide the match-only overlays that would only
+   confuse players (crosshair, remaining count, hide-status pill) */
+#gameScreen.active:has(#lobbyHud[style*="block"]) #crosshair,
+#gameScreen.active:has(#lobbyHud[style*="block"]) #hideStatus,
+#gameScreen.active:has(#lobbyHud[style*="block"]) #blendMeter,
+#gameScreen.active:has(#lobbyHud[style*="block"]) #controlHints,
+#gameScreen.active:has(#lobbyHud[style*="block"]) #roleInfo,
+/* !important because the engine sets display inline on these as it runs, and
+   an inline style beats any selector however specific */
+#gameScreen.active:has(#lobbyHud[style*="block"]) #remainingCount { display: none !important; }
+#lobbyHud {
+  position: absolute;
+  inset: 0;
+  z-index: 22;
+  pointer-events: none;
+}
+#lobbyPanel {
+  position: absolute;
+  top: 60px;
+  right: 12px;
+  width: min(280px, 40vw);
+  background: rgba(15, 15, 25, 0.7);
+  border-radius: 12px;
+  padding: 12px;
+  color: #fff;
+  pointer-events: auto;
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+  backdrop-filter: blur(6px);
+}
+#lobbyPanel h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: #a8d0ff;
+}
+#lobbyPlayerList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+#lobbyPlayerList li {
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#lobbyPlayerList li.me {
+  background: rgba(255, 215, 60, 0.25);
+  border: 1px solid rgba(255, 215, 60, 0.6);
+}
+/* Host-only map picker in the lobby HUD */
+#lobbyMapPickerBox {
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding-top: 10px;
+  margin-bottom: 10px;
+}
+#lobbyMapPickerBox label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 6px;
+  color: #a8d0ff;
+  font-weight: 600;
+}
+#lobbyMapSelect {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+#lobbyMapSelect option { background: #222; color: #fff; }
+
+#lobbyQrBox {
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding-top: 10px;
+  text-align: center;
+}
+#lobbyQrBox label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 6px;
+  color: #a8d0ff;
+}
+#lobbyQr {
+  display: inline-block;
+  padding: 6px;
+  background: #fff;
+  border-radius: 6px;
+}
+.lobby-room-code {
+  margin-top: 6px;
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+#lobbyBottomBar {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  text-align: center;
+}
+#lobbyStartBtn {
+  font-size: 18px;
+  padding: 14px 40px;
+  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.5);
+  animation: startpulse 1.8s ease-in-out infinite;
+}
+@keyframes startpulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.05); }
+}
+#lobbyWaiting {
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffd54a;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+/* ===== Dimension-jump cutscene ===== */
+#dimensionJump {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  overflow: hidden;
+  background: radial-gradient(ellipse at center, #1a0640 0%, #050014 70%, #000 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: dj-fadein 0.25s ease;
+}
+@keyframes dj-fadein { from { opacity: 0; } to { opacity: 1; } }
+
+/* Star field speeding past */
+.dj-stars {
+  position: absolute; inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 20% 30%, #fff, transparent),
+    radial-gradient(2px 2px at 70% 80%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 40% 60%, #a8b8ff, transparent),
+    radial-gradient(2px 2px at 85% 25%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 10% 75%, #ffd8a8, transparent),
+    radial-gradient(2px 2px at 55% 15%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 90% 90%, #a8ffd8, transparent);
+  background-size: 400px 400px;
+  animation: dj-starflow 1.5s linear infinite;
+  opacity: 0.9;
+}
+@keyframes dj-starflow {
+  from { background-position: 0 0; }
+  to   { background-position: 200px -200px; }
+}
+
+/* Warp streaks converging toward the portal */
+.dj-warp {
+  position: absolute; inset: 0;
+  background: repeating-conic-gradient(from 0deg,
+    transparent 0deg, rgba(180,140,255,0) 5deg,
+    rgba(180,140,255,0.6) 5.5deg, transparent 6deg);
+  transform-origin: center;
+  animation: dj-warpspin 1.6s linear infinite;
+  mix-blend-mode: screen;
+}
+@keyframes dj-warpspin {
+  0%   { transform: scale(0.4) rotate(0deg);   opacity: 0.15; }
+  40%  { transform: scale(1.4) rotate(80deg);  opacity: 0.6; }
+  100% { transform: scale(3.5) rotate(200deg); opacity: 0; }
+}
+
+/* The portal itself: a ring that spins open, plus a glowing core */
+.dj-portal {
+  position: relative;
+  width: 40vmin; height: 40vmin;
+  animation: dj-portalgrow 2.2s cubic-bezier(.15,.9,.4,1) forwards;
+}
+@keyframes dj-portalgrow {
+  0%   { transform: scale(0.05); opacity: 0; }
+  20%  { opacity: 1; }
+  60%  { transform: scale(1); }
+  80%  { transform: scale(1.15); }
+  100% { transform: scale(6); opacity: 0; } /* portal swallows the camera */
+}
+.dj-portal-ring {
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  border: 4px solid rgba(180, 140, 255, 0.8);
+  box-shadow:
+    0 0 60px 20px rgba(140,80,255,0.55),
+    inset 0 0 40px 8px rgba(80,200,255,0.6);
+  background: conic-gradient(from 0deg,
+    #7a3aff, #3ad9ff, #ff3ad9, #ffb03a, #3aff9a, #7a3aff);
+  animation: dj-ringspin 1.2s linear infinite;
+  -webkit-mask: radial-gradient(circle, transparent 55%, black 58%);
+          mask: radial-gradient(circle, transparent 55%, black 58%);
+}
+@keyframes dj-ringspin { to { transform: rotate(360deg); } }
+.dj-portal-core {
+  position: absolute; inset: 12%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, #a8dcff 30%, #5aa0ff 55%, #1a2a80 80%, transparent 100%);
+  filter: blur(1px);
+  animation: dj-corepulse 0.9s ease-in-out infinite alternate;
+}
+@keyframes dj-corepulse {
+  from { opacity: 0.7; transform: scale(0.9); }
+  to   { opacity: 1;   transform: scale(1.05); }
+}
+
+/* Blinding white flash right before the arrival */
+.dj-flash {
+  position: absolute; inset: 0;
+  background: #fff;
+  opacity: 0;
+  animation: dj-flash 2.2s ease-in-out forwards;
+}
+@keyframes dj-flash {
+  0%, 78% { opacity: 0; }
+  82%     { opacity: 1; }
+  100%    { opacity: 0; }
+}
+
+.dj-title {
+  position: absolute;
+  bottom: 12%; left: 0; right: 0;
+  text-align: center;
+  font-size: clamp(20px, 5vmin, 40px);
+  font-weight: 800;
+  letter-spacing: 4px;
+  text-shadow: 0 2px 20px rgba(140, 80, 255, 0.9), 0 0 40px rgba(80, 200, 255, 0.6);
+  animation: dj-titlepulse 1.6s ease-in-out infinite alternate;
+}
+@keyframes dj-titlepulse {
+  from { transform: translateY(0);    opacity: 0.85; }
+  to   { transform: translateY(-4px); opacity: 1; }
+}
+
+/* "You're caught" overlay */
+#caughtOverlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(120, 0, 0, 0.35);
+  z-index: 45;
+  pointer-events: none;
+  transition: opacity 1s;
+}
+#caughtOverlay .caught-box {
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  padding: 24px 40px;
+  border-radius: 16px;
+  font-size: 30px;
+  font-weight: 800;
+  text-align: center;
+}
+#caughtOverlay .caught-box span { font-size: 16px; font-weight: 500; opacity: 0.85; }
+
+/* Mobile-only header toggle buttons (paint + lobby panel) */
+.mobile-only { display: none; }
+
+/* ===== Compact HUD for touch devices =====
+   Gated on a body.touch-device class (set from JS when a touch device is
+   detected) rather than a width breakpoint — wide landscape phones and
+   tablets can exceed 820px yet still need the collapsed HUD. */
+body.touch-device #controlHints { display: none; } /* touch controls replace key hints */
+body.touch-device .paint-toolbar { padding: 8px 10px; gap: 8px; }
+body.touch-device .swatch { width: 26px; height: 26px; }
+body.touch-device #remainingNumber { font-size: 30px; }
+body.touch-device #hideStatus { font-size: 12px; padding: 5px 12px; top: 8px; }
+
+/* Paint toolbar + lobby panel collapse behind their header toggles */
+body.touch-device .mobile-only { display: inline-flex; align-items: center; gap: 4px; }
+body.touch-device .paint-toolbar { display: none !important; max-height: 60vh; overflow-y: auto; }
+body.touch-device .paint-toolbar.open { display: flex !important; }
+body.touch-device #lobbyPanel { display: none; }
+body.touch-device #lobbyPanel.open { display: block; }
+body.touch-device #roleInfo.role-fade { opacity: 0; transition: opacity 1s; pointer-events: none; }
+
+/* Tighter header so timer/score/toggles fit on one row */
+body.touch-device .game-header { padding: 5px 8px; gap: 4px; font-size: 12px; }
+body.touch-device .game-header .timer, body.touch-device .game-header .score { font-size: 13px; }
+body.touch-device .game-header .btn.btn-small { padding: 5px 8px; font-size: 13px; }
+body.touch-device #adminPanelBtn { display: none; } /* rarely used mid-game on phones */
+
+/* Running fullscreen on iOS puts the page under the status bar and home
+   indicator, so the clock/score and the ability strip ended up behind them.
+   Everything anchored to an edge gets the safe-area inset added. */
+body.touch-device .game-header {
+  padding-top: calc(5px + env(safe-area-inset-top));
+  padding-left: calc(8px + env(safe-area-inset-left));
+  padding-right: calc(8px + env(safe-area-inset-right));
+}
+body.touch-device .ability-panel { top: calc(52px + env(safe-area-inset-top)); }
+body.touch-device #hideStatus { top: calc(112px + env(safe-area-inset-top)); }
+body.touch-device #mobLeftButtons { top: calc(116px + env(safe-area-inset-top)); }
+body.touch-device #blendMeter { top: calc(150px + env(safe-area-inset-top)); }
+body.touch-device #mobButtons {
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  right: calc(16px + env(safe-area-inset-right));
+}
+body.touch-device #joyZone { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Remaining-hiders chip sits under the ability strip on touch. The id selector
+   is needed — #remainingCount sets `bottom`, and a class alone loses to it,
+   which left the chip stretched the full height of the screen. */
+/* On touch it becomes a compact pill sitting next to the energy chip, styled
+   to match the blend meter. As a 30px number over a separate label it was the
+   biggest thing on a phone screen and landed on top of the quiz/paint buttons
+   and the blend meter both. */
+body.touch-device #remainingCount.remaining-touch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  bottom: auto;
+  right: auto;
+  top: calc(46px + env(safe-area-inset-top));
+  left: calc(92px + env(safe-area-inset-left));
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  text-shadow: none;
+  white-space: nowrap;
+}
+body.touch-device #remainingCount.remaining-touch .rc-label {
+  display: inline;
+  font-size: 12px;
+  opacity: 0.85;
+}
+body.touch-device #remainingCount.remaining-touch #remainingNumber {
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Ability panel on phones: a full-width scrollable strip pinned under the
+   header. In the bottom bar it got squeezed into an unusable ~60px corner,
+   and the bottom of the screen belongs to the joystick + action buttons. */
+/* Touch: the ability strip used to gobble the whole top of the screen. It now
+   collapses to a small pill (⚡ energy) anchored top-left; tap it to slide the
+   abilities out, tap again — or use one — to fold it back. */
+body.touch-device .ability-panel {
+  position: fixed;
+  top: 46px;
+  left: 6px;
+  z-index: 46;
+  margin: 0;
+  padding: 4px 6px;
+  width: auto;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 20px;
+}
+body.touch-device .ability-title,
+body.touch-device .ability-hint { display: none; }
+body.touch-device .ability-head {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+body.touch-device .ability-caret {
+  display: inline;
+  font-size: 11px;
+  opacity: 0.85;
+  transition: transform 0.2s;
+}
+/* Collapsed (default): the ability row is tucked away */
+body.touch-device .ability-panel:not(.expanded) .ability-bar { display: none; }
+/* A little glow on the pill when there's something you can actually afford */
+body.touch-device .ability-panel.has-affordable {
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.7);
+}
+
+/* Expanded: full-width scrollable strip */
+body.touch-device .ability-panel.expanded {
+  right: 6px;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.62);
+}
+body.touch-device .ability-panel.expanded .ability-caret { transform: rotate(180deg); }
+body.touch-device .ability-panel.expanded .ability-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 6px;
+}
+body.touch-device .ability-btn { min-width: 52px; padding: 5px 6px; font-size: 10px; }
+body.touch-device .ability-btn .ab-icon { font-size: 18px; }
+body.touch-device .ability-btn .ab-name { display: none; }
+
+/* Push the hide/hunt status below the ability strip */
+body.touch-device #hideStatus { top: 104px; }
+body.touch-device #radarHud { left: 8px; padding: 5px 10px; }
+/* Phones: the left column holds the quiz/paint buttons, so the meter goes
+   right — below the hide/hunt status and well above the action cluster */
+body.touch-device #blendMeter { top: 142px; right: 12px; left: auto; }
+
+/* Phone held sideways: short and wide. The right edge belongs to the camera
+   and action buttons, so the readouts that also lived there — remaining
+   hiders, the blend meter — were being drawn underneath them. Move them to
+   the left column, under the energy pill, where nothing else sits. */
+@media (max-height: 560px) and (orientation: landscape) {
+  /* The remaining-hiders pill rides beside the energy chip (see above); the
+     blend meter takes the row under them both, clear of the right-hand
+     buttons it used to be drawn behind */
+  body.touch-device #blendMeter {
+    right: auto;
+    /* bottom must be cleared: the base rule sets it, and top+bottom together
+       stretch an absolutely positioned box down the whole screen */
+    bottom: auto;
+    left: calc(12px + env(safe-area-inset-left));
+    top: calc(80px + env(safe-area-inset-top));
+  }
+  /* Stack the quiz/paint pair sideways instead of down the screen — stacked,
+     they ran into the joystick zone on a screen this short */
+  body.touch-device #mobLeftButtons {
+    flex-direction: row;
+    top: calc(146px + env(safe-area-inset-top));
+  }
+  body.touch-device #mobLeftButtons .mob-btn { width: 54px; height: 54px; font-size: 19px; }
+  body.touch-device #hideStatus { top: calc(52px + env(safe-area-inset-top)); font-size: 11px; }
+}
+
+/* The quiz and paint buttons are match controls — while the lobby card is up
+   they have nothing to do and were sitting on top of the how-to-play tips */
+#gameScreen.active:has(#lobbyHud[style*="block"]) #mobLeftButtons { display: none; }
+
+/* Tablets (iPad): the phone-sized controls are lost on a screen this big, and
+   the thumbs sit further apart — scale the joystick and buttons up to match.
+   Height matters as much as width here: a phone held sideways is well over
+   760px wide but only ~420px tall, so it was being handed 104px tablet buttons
+   on a screen with no room for them and the controls piled on top of each
+   other. Require real vertical space before scaling anything up. */
+@media (min-width: 760px) and (min-height: 600px) {
+  body.touch-device #joystick { width: 168px; height: 168px; }
+  body.touch-device #joystickKnob { width: 76px; height: 76px; }
+  body.touch-device .mob-btn { width: 104px; height: 104px; font-size: 32px; }
+  body.touch-device .mob-btn span { font-size: 13px; }
+  body.touch-device .mob-cam { width: 82px; height: 82px; font-size: 30px; }
+  body.touch-device #mobButtons { right: 26px; bottom: 32px; gap: 18px; }
+  body.touch-device #mobLeftButtons .mob-btn { width: 82px; height: 82px; font-size: 28px; }
+  /* Side by side on tablets: stacked, the taller buttons reached down into the
+     joystick summon zone and stole touches meant for the stick */
+  body.touch-device #mobLeftButtons {
+    left: 20px;
+    top: calc(140px + env(safe-area-inset-top));
+    flex-direction: row;
+  }
+  body.touch-device #remainingCount.remaining-touch { top: calc(148px + env(safe-area-inset-top)); }
+  body.touch-device .ability-panel { top: calc(58px + env(safe-area-inset-top)); }
+  body.touch-device #hideStatus { top: calc(124px + env(safe-area-inset-top)); }
+  body.touch-device #blendMeter { top: calc(168px + env(safe-area-inset-top)); }
+  body.touch-device .ability-btn { min-width: 62px; padding: 7px 9px; font-size: 12px; }
+  body.touch-device .ability-btn .ab-icon { font-size: 22px; }
+}
+
+/* ===== Small-window responsive tweaks (menus/forms only) ===== */
+@media (max-width: 820px) {
+  .menu-card { padding: 24px 20px; }
+  .menu-hero h1 { font-size: 30px; }
+  .form-row { flex-direction: column; gap: 0; }
+  /* Compact the hero so the whole card still fits a phone screen */
+  .menu-logo { font-size: 44px; }
+  .menu-hero { margin-bottom: 16px; }
+  .menu-feats { gap: 5px; margin-top: 10px; }
+  .menu-feats span { font-size: 11px; padding: 4px 9px; }
+  .menu-card input[type="text"],
+  .menu-card select,
+  .menu-card .picker-btn { padding: 11px 12px; }
+  .menu-card .btn-primary,
+  .menu-card .btn-secondary { padding: 13px 16px; font-size: 15px; }
+}
+
+/* Never clip the menu on short screens — let it scroll instead */
+#welcomeScreen.active {
+  overflow-y: auto;
+  align-items: flex-start;
+  padding: 18px 0;
+}
+
+.powers-list {
+  display: flex;
+  gap: 10px;
+}
+
+/* Modal */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  padding: 20px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.modal-header h3 {
+  margin: 0;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  padding: 20px;
+  border-top: 2px solid #f0f0f0;
+  display: flex;
+  gap: 10px;
+}
+
+/* Question-set picker button + custom-duration input */
+.picker-btn {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #d5d9e0;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color 0.15s;
+}
+.picker-btn:hover { border-color: #667eea; }
+#customDurationRow {
+  margin-top: 8px;
+  align-items: center;
+  gap: 8px;
+}
+#customDuration {
+  width: 90px;
+  padding: 8px 10px;
+  border: 2px solid #d5d9e0;
+  border-radius: 8px;
+  font-size: 15px;
+}
+.unit-label { font-size: 13px; color: #888; }
+
+/* Picker window: searchable list of question-set cards */
+.picker-search {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #d5d9e0;
+  border-radius: 8px;
+  font-size: 15px;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+.picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.picker-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 40px 12px 14px;
+  border: 2px solid #e4e7ec;
+  border-radius: 10px;
+  background: #fafbfc;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s, background 0.12s;
+}
+.picker-card:hover { border-color: #667eea; background: #f4f6ff; }
+.picker-card.selected { border-color: #667eea; background: #eef1ff; }
+.picker-card-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.picker-card-name { font-size: 15px; font-weight: 700; color: #2a2a2a; }
+.picker-card-meta { font-size: 12px; color: #8a8a8a; white-space: nowrap; }
+.picker-card-desc { font-size: 13px; color: #666; }
+.picker-check {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #667eea;
+  font-weight: 800;
+  font-size: 18px;
+}
+.picker-empty { text-align: center; color: #999; padding: 20px; }
+
+/* Admin Panel */
+#adminApp {
+  display: flex;
+  height: 100vh;
+  background: white;
+}
+
+.admin-nav {
+  width: 250px;
+  background: #1a1a2e;
+  color: white;
+  padding: 20px;
+  border-right: 2px solid #667eea;
+  overflow-y: auto;
+}
+
+.admin-nav h2 {
+  color: #667eea;
+  margin-bottom: 30px;
+}
+
+.admin-nav ul {
+  list-style: none;
+  margin-bottom: 30px;
+}
+
+.admin-nav li {
+  margin-bottom: 10px;
+}
+
+.tab-link {
+  color: #ccc;
+  text-decoration: none;
+  display: block;
+  padding: 10px;
+  border-left: 3px solid transparent;
+  transition: all 0.3s;
+}
+
+.tab-link:hover,
+.tab-link.active {
+  color: white;
+  border-left-color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.admin-content {
+  flex: 1;
+  padding: 40px;
+  overflow-y: auto;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.form-section {
+  background: #f5f5f5;
+  padding: 25px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+}
+
+.list-section {
+  margin-bottom: 30px;
+}
+
+.list {
+  list-style: none;
+}
+
+.list-item {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.list-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.list-item-content {
+  flex: 1;
+}
+
+.list-item-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Game Over Screen */
+#gameOverScreen {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.results {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.result-item {
+  padding: 15px;
+  margin-bottom: 10px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.result-item.winner {
+  background: #c8e6c9;
+  border-left: 4px solid #4caf50;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .container {
+    max-width: 100%;
+    width: 100%;
+    padding: 20px;
+    border-radius: 0;
+  }
+
+  h1 {
+    font-size: 36px;
+  }
+
+  .button-group {
+    flex-direction: column;
+  }
+
+  .btn {
+    min-width: auto;
+    width: 100%;
+  }
+  /* But not in the game HUD — header buttons must stay compact
+     (this rule was stretching every icon to fill the whole header) */
+  .game-header .btn,
+  #lobbyBottomBar .btn,
+  .paint-toolbar .btn {
+    width: auto;
+  }
+
+  .admin-nav {
+    width: 100%;
+    border-right: none;
+    border-bottom: 2px solid #667eea;
+  }
+
+  .admin-nav ul {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .admin-nav li {
+    flex: 1;
+  }
+
+  #adminApp {
+    flex-direction: column;
+  }
+
+  .admin-content {
+    padding: 20px;
+  }
+}
+
+/* ===== Import questions from files ===== */
+.import-drop {
+  border: 2.5px dashed #b7c0cc;
+  border-radius: 12px;
+  padding: 26px 20px;
+  text-align: center;
+  background: #f7f9fc;
+  margin-bottom: 16px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.import-drop.dragging { border-color: #667eea; background: #eef1ff; }
+.import-drop-icon { font-size: 40px; margin-bottom: 6px; }
+.import-drop p { margin: 4px 0; font-size: 15px; }
+.import-drop small { color: #888; }
+.import-browse {
+  color: #667eea;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.import-filename { margin-top: 8px; font-weight: 600; color: #2e7d32; }
+
+.import-status { margin: 10px 0; font-weight: 600; min-height: 20px; }
+
+.import-preview {
+  margin-top: 14px;
+  border-top: 1px solid #e4e7ec;
+  padding-top: 14px;
+}
+.import-preview h4 { margin: 0 0 10px; }
+#importPreviewList {
+  max-height: 340px;
+  overflow-y: auto;
+  margin-bottom: 14px;
+}
+.import-preview-item {
+  padding: 10px 12px;
+  background: #f7f9fc;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.import-badge {
+  display: inline-block;
+  background: #667eea;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-right: 8px;
+}
+.import-detail { color: #555; font-size: 13px; margin-top: 4px; }
+
+.import-help { background: #fffdf5; }
+.import-help-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+  margin: 8px 0;
+}
+.import-help-table th, .import-help-table td {
+  border: 1px solid #e0d8b8;
+  padding: 6px 10px;
+  text-align: left;
+}
+.import-help-table th { background: #f5eecf; }
+.import-help-pre {
+  background: #2b2b3a;
+  color: #e6e6ef;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  overflow-x: auto;
+  white-space: pre;
+}
+.import-help code {
+  background: #ececf4;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+}
