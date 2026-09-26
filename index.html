@@ -3,64 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101425">
-  <title>Chroma Hide — เกมพรางตัวด้วยสี</title>
-  <meta name="description" content="เกมซ่อนหาที่ให้คุณระบายสีตัวละครเพื่อพรางตัว แล้วหลบผู้ค้นหาให้ครบเวลา">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23c3f377'/%3E%3Cpath d='M32 12 52 32 32 52 12 32Z' fill='none' stroke='%23172218' stroke-width='5'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23172218'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#171a20">
+  <title>Chroma Hide 3D — ซ่อนหา ระบายสี</title>
+  <meta name="description" content="เกมซ่อนหา 3D ระบายสีพรางตัว เล่นเป็นผู้ซ่อนหรือผู้หาในเบราว์เซอร์">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="app">
-    <header class="topbar">
-      <div class="brand"><span class="brand-icon">◈</span><div><strong>CHROMA HIDE</strong><small>PAINT · HIDE · SURVIVE</small></div></div>
-      <div class="top-note">เกมซ่อนหาพรางตัวด้วยสี · เล่นได้ในเบราว์เซอร์</div>
-      <button id="helpBtn" class="ghost-btn" type="button">วิธีเล่น ?</button>
-    </header>
-
-    <section class="layout">
-      <aside class="tool-panel">
-        <div class="section-head"><span class="step">01</span><div><h2>ระบายตัวละคร</h2><p>สีที่ตรงกับฉากช่วยให้รอด</p></div></div>
-        <div class="paint-card">
-          <canvas id="paintCanvas" width="180" height="220" aria-label="พื้นที่ระบายสีตัวละคร"></canvas>
-          <div class="paint-hint">ลากเมาส์หรือใช้นิ้วระบายสี</div>
-        </div>
-        <div class="tool-row">
-          <label class="color-wrap">สี <input id="colorPicker" type="color" value="#9c7159" aria-label="เลือกสีพู่กัน"></label>
-          <label class="brush-wrap">ขนาด <input id="brushSize" type="range" min="3" max="30" value="16" aria-label="ขนาดพู่กัน"><output id="brushValue">16</output></label>
-        </div>
-        <div id="swatches" class="swatches" aria-label="ชุดสีจากฉาก"></div>
-        <div class="tool-actions">
-          <button id="eyedropperBtn" class="soft-btn" type="button">◉ ดูดสีจากฉาก</button>
-          <button id="resetPaintBtn" class="soft-btn" type="button">↺ ล้างสี</button>
-        </div>
-        <p class="tiny-tip">เคล็ดลับ: เลือกตำแหน่งก่อน แล้วดูดสีผนังหรือพื้นใกล้ตัวมาระบาย</p>
-      </aside>
-
-      <section class="game-panel">
-        <div class="section-head scene-head"><span class="step">02</span><div><h2>เลือกที่ซ่อน</h2><p id="phaseInstruction">คลิกในฉากเพื่อย้ายตัวละคร</p></div><span id="phaseTag" class="phase-tag">เตรียมซ่อน</span></div>
-        <div class="scene-wrap">
-          <canvas id="sceneCanvas" width="960" height="600" aria-label="ฉากเกมซ่อนหา"></canvas>
-          <div class="scene-top"><span id="roundLabel">รอบที่ 1</span><span id="timerLabel">00:45</span></div>
-          <div id="sceneToast" class="scene-toast" role="status"></div>
-          <div id="eyedropperBadge" class="eyedropper-badge" hidden>คลิกสีในฉากที่ต้องการ</div>
-          <div id="overlay" class="overlay">
-            <div class="modal"><div class="modal-kicker">CHROMA HIDE</div><h1 id="overlayTitle">ซ่อนให้เนียน<br><em>ที่สุด</em></h1><p id="overlayText">ระบายสีตัวละครให้เข้ากับฉาก เลือกที่ซ่อน แล้วหลบสายตาของผู้ค้นหาให้ครบเวลา</p><button id="overlayBtn" class="primary-btn" type="button">เริ่มเกม →</button></div>
-          </div>
-        </div>
-        <div class="scene-footer"><span>คลิกฉากเพื่อย้าย · WASD / ลูกศรเพื่อเดิน</span><button id="huntBtn" class="primary-btn" type="button" disabled>เริ่มค้นหา →</button></div>
-      </section>
-
-      <aside class="status-panel">
-        <div class="section-head"><span class="step">03</span><div><h2>เอาตัวรอด</h2><p>อย่าให้ผู้ค้นหาเห็น</p></div></div>
-        <div class="metric"><div class="metric-top"><span>ความกลมกลืน</span><strong id="camoValue">—</strong></div><div class="meter"><span id="camoBar" class="camo"></span></div><small id="camoHint">ระบายสีแล้วเลือกที่ซ่อน</small></div>
-        <div class="metric"><div class="metric-top"><span>การถูกตรวจพบ</span><strong id="detectValue">0%</strong></div><div class="meter"><span id="detectBar" class="detect"></span></div><small>แถบเต็มเมื่อไร คุณถูกจับได้</small></div>
-        <div class="status-card"><span class="status-icon">◎</span><div><strong id="statusTitle">รอเริ่มเกม</strong><p id="statusText">เตรียมสีและหาจุดที่กลืนกับพื้นหลัง</p></div></div>
-        <div class="mini-guide"><h3>วิธีเล่น</h3><ol><li>คลิกจุดที่ต้องการซ่อนในฉาก</li><li>ใช้พู่กันระบายตัวละคร หรือดูดสีจากฉาก</li><li>กด “เริ่มค้นหา” แล้วเอาตัวรอด 45 วินาที</li></ol></div>
-        <div class="scoreline">สถิติรอดสูงสุด <strong id="bestScore">0</strong> วินาที</div>
-      </aside>
-    </section>
-  </main>
-  <script src="game.js"></script>
+  <div id="game"></div>
+  <div id="hud" class="hidden">
+    <div class="hud-top"><div class="team"><span id="roleIcon">●</span><span id="roleLabel">ผู้ซ่อน</span></div><div class="clock"><small id="phaseLabel">เตรียมซ่อน</small><b id="clock">01:00</b></div><div class="score"><span>🔎 <b id="hunterCount">1</b></span><span>◉ <b id="hiderCount">4</b></span></div></div>
+    <div id="crosshair">+</div><div id="hitflash"></div>
+    <div class="hud-bottom"><div id="status">WASD เดิน · เมาส์หมุนกล้อง · Shift วิ่ง</div><div id="hint">หลบสายตาผู้หา ระบายสีให้เข้ากับฉาก</div></div>
+    <div id="actions" class="actions"><button id="tauntBtn">♪<small>ส่งเสียง T</small></button><button id="poseBtn">◔<small>โพส R</small></button><button id="paintBtn">✎<small>ระบายสี E</small></button></div>
+    <div id="paintPanel" class="paint-panel hidden"><div class="panel-heading"><strong>PAINT MODE</strong><button id="closePaint">×</button></div><p>เลือกส่วนตัวละครและสี หรือคลิกตัวละครเพื่อแต้มเฉพาะชิ้น · ดูดสีได้จากวัตถุในฉาก</p><div class="part-grid"><button data-part="head">หัว</button><button data-part="body">ลำตัว</button><button data-part="arms">แขน</button><button data-part="legs">ขา</button><button data-part="all">ทั้งตัว</button></div><div id="swatches" class="swatches"></div><div class="paint-row"><label>สีเอง <input id="color" type="color" value="#e9e9e5"></label><button id="eyeBtn">◎ ดูดสีในฉาก</button><button id="clearBtn">ล้างสี</button></div></div>
+    <div id="mobile" class="mobile hidden"><div id="joy" class="joystick"><div id="nub"></div></div><div><button id="mobileRun">วิ่ง</button><button id="mobileAct">ยิง</button></div></div>
+  </div>
+  <div id="toast" class="toast hidden"></div>
+  <div id="menu" class="menu"><div class="menu-card"><div class="eyebrow">3D PAINT & HIDE</div><h1>CHROMA<br><em>HIDE</em></h1><p class="lead">ซ่อนให้กลืนกับฉาก หรือออกตามหาคนที่พรางตัว</p><div class="settings"><label>แผนที่<select id="map"><option value="backrooms">BACKROOMS — ทางเดินสีเหลือง</option><option value="playroom">TOY ROOM — ห้องของเล่น</option><option value="pool">POOL — สวนน้ำ</option></select></label><label>บทบาท<select id="role"><option value="hider">ผู้ซ่อน · ระบายสีพรางตัว</option><option value="seeker">ผู้หา · ตามหาและยิงตัวปลอม</option></select></label></div><button id="start" class="start">เริ่มเล่น →</button><div class="menu-foot">WASD เดิน · Shift วิ่ง · ลากเมาส์หมุนกล้อง · E ระบายสี · T ส่งเสียง · R โพส · คลิกยิงเมื่อเป็นผู้หา</div></div></div>
+  <div id="end" class="end hidden"><div class="end-card"><div class="eyebrow" id="endEyebrow">จบรอบ</div><h2 id="endTitle">คุณรอด!</h2><p id="endText"></p><div class="end-actions"><button id="again" class="start">เล่นอีกครั้ง</button><button id="back">เปลี่ยนแผนที่ / บทบาท</button></div></div></div>
+  <script type="module" src="game.js"></script>
 </body>
 </html>
-

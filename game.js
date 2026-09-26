@@ -1,192 +1,264 @@
-(() => {
-  'use strict';
-  const $ = id => document.getElementById(id);
-  const scene = $('sceneCanvas'), ctx = scene.getContext('2d');
-  const paint = $('paintCanvas'), pctx = paint.getContext('2d', {willReadFrequently:true});
-  const base = document.createElement('canvas'); base.width = scene.width; base.height = scene.height;
-  const bctx = base.getContext('2d', {willReadFrequently:true});
-  const W = scene.width, H = scene.height;
-  const swatchColors = ['#faf3dd','#b27c60','#754740','#375b66','#527c6b','#c49343','#cc6a65','#465282','#8b6d9b','#1f3543','#d6b99a','#6f8d70'];
-  let color = '#9c7159', brush = 16, eyedropper = false, painting = false, lastPaintPoint = null;
-  let phase = 'intro', preHelpPhase = 'intro', remaining = 45, detection = 0, camo = 0;
-  let player = {x:500,y:384}, seeker = {x:80,y:430,dir:1}, keys = new Set();
-  let last = performance.now(), elapsed = 0, moveHeat = 0, toastTimer = 0, lastScoreUpdate = 0;
-  let best = Number(localStorage.getItem('chromaHideBest') || 0);
-  $('bestScore').textContent = best.toFixed(1);
+import * as THREE from './vendor/three.module.js';
 
-  const clamp = (n,a,b) => Math.max(a,Math.min(b,n));
-  const lerp = (a,b,t) => a+(b-a)*t;
-  const rgb = hex => { const n=parseInt(hex.slice(1),16); return [(n>>16)&255,(n>>8)&255,n&255]; };
-  const hex = (r,g,b) => '#'+[r,g,b].map(v=>clamp(Math.round(v),0,255).toString(16).padStart(2,'0')).join('');
-  const fmt = n => '00:'+Math.ceil(Math.max(0,n)).toString().padStart(2,'0');
+const $ = id => document.getElementById(id);
+const scene = new THREE.Scene();
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.55;
+$('game').appendChild(renderer.domElement);
+const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, .07, 90);
+scene.add(camera);
+const weapon=new THREE.Group();camera.add(weapon);weapon.position.set(.53,-.48,-.9);
+const gunMat=new THREE.MeshStandardMaterial({color:'#2a3035',roughness:.42,metalness:.5});
+const gunBody=new THREE.Mesh(new THREE.BoxGeometry(.26,.23,.7),gunMat);gunBody.position.set(0,0,-.12);weapon.add(gunBody);
+const gunBarrel=new THREE.Mesh(new THREE.CylinderGeometry(.065,.08,.55,12),gunMat);gunBarrel.rotation.x=Math.PI/2;gunBarrel.position.set(0,.05,-.62);weapon.add(gunBarrel);
+const gunGrip=new THREE.Mesh(new THREE.BoxGeometry(.17,.38,.18),gunMat);gunGrip.position.set(0,-.23,.12);gunGrip.rotation.x=-.22;weapon.add(gunGrip);weapon.visible=false;
+const hemi = new THREE.HemisphereLight(0xffffff, 0x80858a, 2.25); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 2.3); sun.position.set(-7, 18, 5); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.camera.left = -25; sun.shadow.camera.right = 25; sun.shadow.camera.top = 25; sun.shadow.camera.bottom = -25; scene.add(sun);
+const clock3d = new THREE.Clock();
+const raycaster = new THREE.Raycaster();
+const obstacles = [], solids = [], props = [], bots = [], hunters = [];
+const keys = new Set();
+const state = { active:false, finished:false, role:'hider', map:'backrooms', phase:'prep', time:30, yaw:0.5, pitch:.12, drag:false, part:'all', paintColor:'#e9e9e5', eyedropper:false, pose:0, tauntCooldown:0, lastShot:0, misses:0, targetNoise:0, mobileX:0, mobileY:0, sprint:false };
+let mapGroup = new THREE.Group(), player, playerParts, previewSpin = 0, toastTimer;
+scene.add(mapGroup);
+const MAT = c => new THREE.MeshStandardMaterial({color:c, roughness:.83, metalness:0});
+const colorOf = m => m?.color ? '#' + m.color.getHexString() : '#ededed';
+function box(parent, x,y,z,w,h,d,color, solid=false, material=null) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), material || MAT(color));
+  mesh.position.set(x,y,z); mesh.castShadow = h > .35; mesh.receiveShadow = true; parent.add(mesh);
+  if (solid) { obstacles.push({x1:x-w/2,x2:x+w/2,z1:z-d/2,z2:z+d/2}); solids.push(mesh); }
+  props.push(mesh); return mesh;
+}
+function cyl(parent,x,y,z,r1,r2,h,color,solid=false,segments=14){
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,segments),MAT(color));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;parent.add(m);props.push(m);
+  if(solid){obstacles.push({x1:x-r1,x2:x+r1,z1:z-r1,z2:z+r1});solids.push(m)}return m;
+}
+function sphere(parent,x,y,z,r,color){const m=new THREE.Mesh(new THREE.SphereGeometry(r,18,12),MAT(color));m.position.set(x,y,z);m.castShadow=true;parent.add(m);props.push(m);return m}
+function plane(parent,x,y,z,w,d,color){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),MAT(color));m.rotation.x=-Math.PI/2;m.position.set(x,y,z);m.receiveShadow=true;parent.add(m);props.push(m);return m}
+function light(x,y,z,color=0xfff2d0,intensity=3,range=11){const l=new THREE.PointLight(color,intensity,range,1.8);l.position.set(x,y,z);mapGroup.add(l)}
+function clearMap(){scene.remove(mapGroup);mapGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material && !Array.isArray(o.material))o.material.dispose()});mapGroup=new THREE.Group();scene.add(mapGroup);obstacles.length=0;solids.length=0;props.length=0;bots.length=0;hunters.length=0}
+function bounds(){box(mapGroup,0,2.1,-19,38,4.2,.4,'#cabd91',true);box(mapGroup,0,2.1,19,38,4.2,.4,'#cabd91',true);box(mapGroup,-19,2.1,0,.4,4.2,38,'#cabd91',true);box(mapGroup,19,2.1,0,.4,4.2,38,'#cabd91',true)}
+function wall(x,z,w,d,color='#e4d69f'){box(mapGroup,x,2.05,z,w,4.1,d,color,true);box(mapGroup,x,3.88,z,w,.08,d,'#d7cca8')}
+function makeBackrooms(){
+  scene.background=new THREE.Color('#9e9781');scene.fog=new THREE.Fog('#bdb79e',17,54);sun.intensity=.35;hemi.intensity=2.3;
+  plane(mapGroup,0,0,0,38,38,'#bbb59c');bounds();
+  const tile=MAT('#c7c2aa');for(let x=-18;x<19;x+=2)for(let z=-18;z<19;z+=2){const p=plane(mapGroup,x,0.012,z,1.97,1.97,'#c4bda2');p.material=tile}
+  wall(-11,-6,16,.5);wall(-2,-6,3,.5);wall(8,-6,12,.5);wall(-13,6,12,.5);wall(1,6,12,.5);wall(15,6,8,.5);
+  wall(-6,-13,.5,11);wall(-6,0,.5,8);wall(7,-13,.5,11);wall(7,0,.5,8);wall(-6,13,.5,11);wall(7,13,.5,11);
+  for(let x=-15;x<=15;x+=10)for(let z=-15;z<=15;z+=10){box(mapGroup,x,4.15,z,6,.08,2.8,'#e9eadf');light(x,3.92,z,0xfff0bf,2.8,11)}
+  for(let x=-18;x<19;x+=3)for(let z=-18;z<19;z+=3){box(mapGroup,x,4.22,z,2.95,.03,.03,'#a7a18b');box(mapGroup,x,4.22,z,.03,.03,2.95,'#a7a18b')}
+  // The abandoned furniture and black bags provide hiding cover.
+  for(const [x,z,a] of [[-13,-12,0],[13,-12,.4],[-13,12,-.5],[13,12,.2],[-1,14,.1]]){
+    const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=a;mapGroup.add(g);
+    box(g,0,.42,0,2,.8,.85,'#735844');box(g,0,.9,.35,2,1,.25,'#694f3e');box(g,-.82,.8,-.15,.28,.7,.7,'#644b3a');box(g,.82,.8,-.15,.28,.7,.7,'#644b3a');
+    obstacles.push({x1:x-1.2,x2:x+1.2,z1:z-.7,z2:z+.7});
+  }
+  for(const [x,z] of [[-3,-14],[15,-3],[-15,2],[2,14]]){box(mapGroup,x,.16,z,1.8,.3,1.1,'#a1855a',true);sphere(mapGroup,x+.65,.48,z,.35,'#202325')}
+  for(const [x,z] of [[-9,0],[11,0],[-13,-16]]){box(mapGroup,x,.55,z,1.8,1.1,1.3,'#866f51',true);box(mapGroup,x,1.12,z,1.84,.06,1.34,'#ac9575')}
+  box(mapGroup,-17,2.2,-7,.1,1.3,1.1,'#a47f62');box(mapGroup,17,2.2,7,.1,1.3,1.1,'#a47f62');
+}
+function makePlayroom(){
+  scene.background=new THREE.Color('#abc8dd');scene.fog=new THREE.Fog('#b3c9d3',26,62);sun.intensity=3.2;hemi.intensity=2.1;
+  plane(mapGroup,0,0,0,38,38,'#75a458');bounds();
+  for(let x=-18;x<19;x+=2)for(let z=-18;z<19;z+=2)plane(mapGroup,x,.012,z,1.92,1.92,(x+z)%4===0?'#8db871':'#7ca85f');
+  // Toy barn and play-house walls.
+  wall(-10,-10,16,.6,'#986d4d');wall(-18,-2,.5,16,'#9c714e');wall(9,-13,17,.5,'#c3e0dd');wall(12,2,.5,15,'#bdd8d3');
+  box(mapGroup,-10,3.8,-10,17,.32,2,'#76553d');box(mapGroup,-10,1,-2,12,2,.35,'#b07d55');
+  for(let x=-17;x<=17;x+=5)box(mapGroup,x,2,-18.75,.07,4,.08,'#6e533a');
+  for(const [x,z,c] of [[-13,4,'#e05947'],[-7,11,'#f0ce3d'],[1,12,'#379ac2'],[13,11,'#dd5d83'],[7,-3,'#e7843d']]){
+    box(mapGroup,x,.48,z,2.4,.96,2.4,c,true);box(mapGroup,x,1,z,2.47,.12,2.47,'#f6eed1');
+    sphere(mapGroup,x+.6,1.95,z,.34,c);box(mapGroup,x+.6,1.48,z,.03,.7,.03,'#e1ddd1');
+  }
+  for(const [x,z] of [[-2,-9],[16,-7],[-15,14]]){box(mapGroup,x,1.2,z,3.6,2.4,1,'#67839b',true);for(let i=0;i<3;i++)box(mapGroup,x, .3+i*.75,z+.54,3.7,.09,.16,'#dae4d8')}
+  for(const [x,z,c] of [[4,4,'#f4db36'],[9,8,'#dd4c46'],[-3,5,'#3c91ca']]){cyl(mapGroup,x,.55,z,.7,.75,1.1,c,true);sphere(mapGroup,x,1.26,z,.38,'#fbf4e7')}
+  for(let x=-13;x<=13;x+=13)for(let z=-13;z<=13;z+=13)light(x,4,z,0xffffff,2,13);
+}
+function makePool(){
+  scene.background=new THREE.Color('#90c6e5');scene.fog=new THREE.Fog('#b3d9e8',32,70);sun.intensity=4.2;hemi.intensity=2.7;
+  plane(mapGroup,0,0,0,38,38,'#e9ece7');bounds();
+  const tile=MAT('#f0f3ed');for(let x=-18;x<19;x+=2)for(let z=-18;z<19;z+=2){const p=plane(mapGroup,x,.013,z,1.96,1.96,'#f0f3ed');p.material=tile}
+  wall(-17,-4,.6,28,'#f4f6f5');wall(16,-10,.6,16,'#f4f6f5');
+  box(mapGroup,0,.04,0,13,.07,10,'#219cc3');box(mapGroup,0,.05,0,12.4,.08,9.4,'#30bbd8');
+  for(let x=-6;x<=6;x+=2)box(mapGroup,x,.09,-5,.06,.04,10,'#f5f7f5');
+  for(const [x,z] of [[-8,-8],[8,-8],[-8,8],[8,8]]){box(mapGroup,x,.55,z,2.4,1.1,1.1,'#e7e1d0',true);box(mapGroup,x,1.15,z,2.5,.12,1.2,'#f8f8f3')}
+  // Rainbow slides and poolside rings.
+  for(let i=0;i<4;i++){const c=['#e64e4a','#f4c839','#51bb8c','#469bd1'][i];const g=new THREE.Group();g.position.set(-12+i*1.5,0,-13);mapGroup.add(g);const slide=box(g,0,1.65,2.5,1.2,.13,6,c);slide.rotation.x=-.35;box(g,-.5,1.7,2.5,.12,.45,6,c).rotation.x=-.35;box(g,.5,1.7,2.5,.12,.45,6,c).rotation.x=-.35}
+  for(const [x,z,c] of [[12,11,'#f6a548'],[-12,10,'#e85f7a'],[14,-4,'#68cbd1']]){const ring=new THREE.Mesh(new THREE.TorusGeometry(.68,.25,10,22),MAT(c));ring.rotation.x=-Math.PI/2;ring.position.set(x,.3,z);ring.castShadow=true;mapGroup.add(ring);props.push(ring)}
+  for(const x of [-14,14])for(const z of [-14,14]){cyl(mapGroup,x,2,z,.16,.16,4,'#c2cdd0');sphere(mapGroup,x,4,z,.5,'#fdf7de');light(x,3.9,z,0xffffff,2,15)}
+}
+function loadMap(which){clearMap();if(which==='playroom')makePlayroom();else if(which==='pool')makePool();else makeBackrooms()}
 
-  function roundRect(c,x,y,w,h,r,fill,stroke) {
-    c.beginPath(); c.roundRect(x,y,w,h,r); if(fill){c.fillStyle=fill;c.fill();} if(stroke){c.strokeStyle=stroke;c.stroke();}
+function makePerson(x,z,color='#ededeb',hunter=false){
+  const root=new THREE.Group();root.position.set(x,0,z);scene.add(root);
+  const model=new THREE.Group();root.add(model);
+  const parts={head:[],body:[],arms:[],legs:[]};
+  const add=(geo,px,py,pz,part)=>{const mesh=new THREE.Mesh(geo,MAT(color));mesh.position.set(px,py,pz);mesh.castShadow=true;mesh.receiveShadow=true;model.add(mesh);parts[part].push(mesh);return mesh};
+  add(new THREE.SphereGeometry(.36,24,16),0,1.67,0,'head');
+  const torso=add(new THREE.CapsuleGeometry(.31,.62,5,10),0,1.04,0,'body');torso.scale.z=.79;
+  const l=add(new THREE.CapsuleGeometry(.115,.55,4,9),-.43,1.05,0,'arms');l.rotation.z=-.16;
+  const r=add(new THREE.CapsuleGeometry(.115,.55,4,9),.43,1.05,0,'arms');r.rotation.z=.16;
+  add(new THREE.CapsuleGeometry(.145,.48,4,9),-.19,.42,0,'legs');add(new THREE.CapsuleGeometry(.145,.48,4,9),.19,.42,0,'legs');
+  const eyeMat=MAT('#343941');for(const ex of [-.115,.115]){const eye=new THREE.Mesh(new THREE.SphereGeometry(.035,8,8),eyeMat);eye.position.set(ex,1.69,-.33);model.add(eye)}
+  if(hunter){const band=new THREE.Mesh(new THREE.TorusGeometry(.35,.055,6,20),MAT('#ea645e'));band.position.set(0,1.72,0);band.rotation.x=Math.PI/2;model.add(band);const gun=box(model,.5,1.02,-.18,.55,.16,.18,'#29323a');gun.castShadow=true}
+  root.userData={parts,hunter,alive:true,pose:0,alert:0,waypoint:new THREE.Vector3(x,0,z),brain:0,phase:Math.random()*6};return root;
+}
+function tint(root,part,color){if(!root)return;const parts=root.userData.parts;const groups=part==='all'?Object.values(parts):[parts[part]];for(const meshes of groups)for(const m of meshes)m.material.color.set(color)}
+function posePerson(root,pose){root.userData.pose=pose;const model=root.children[0];model.scale.set(1,[1,.7,.4][pose],1);model.position.y=0;if(pose===2)model.rotation.x=-.95;else model.rotation.x=0}
+function removePeople(){for(const o of [...bots,...hunters,player].filter(Boolean))scene.remove(o);bots.length=0;hunters.length=0;player=null}
+function free(x,z,r=.34){if(x<-18.3||x>18.3||z<-18.3||z>18.3)return false;return !obstacles.some(o=>x+r>o.x1&&x-r<o.x2&&z+r>o.z1&&z-r<o.z2)}
+function move(root,dx,dz){const p=root.position;if(free(p.x+dx,p.z))p.x+=dx;if(free(p.x,p.z+dz))p.z+=dz}
+function randomPlace(){for(let i=0;i<100;i++){const x=(Math.random()-.5)*32,z=(Math.random()-.5)*32;if(free(x,z,1))return [x,z]}return [0,0]}
+function botPlace(){for(let i=0;i<100;i++){const [x,z]=randomPlace();if(distance({x,z},player.position)>7)return [x,z]}return randomPlace()}
+function colorBot(bot,index){const schemes=[['#d9d0ab','#ded5b1','#a89e83'],['#728d68','#7d9b70','#6b8265'],['#b0bdc1','#d0dedf','#95a9b0'],['#9b775d','#ad8a68','#7f644f'],['#d4d1c6','#e6e3d8','#c1beb4']];const colors=schemes[index%schemes.length];tint(bot,'head',colors[0]);tint(bot,'body',colors[1]);tint(bot,'arms',colors[1]);tint(bot,'legs',colors[2]);if(index%3===1)posePerson(bot,1)}
+function nextNavStep(from,to){
+  const clamp=n=>Math.max(-18,Math.min(18,Math.round(n)));
+  const sx=clamp(from.x),sz=clamp(from.z),tx=clamp(to.x),tz=clamp(to.z),key=(x,z)=>`${x},${z}`;
+  const queue=[[sx,sz]],seen=new Set([key(sx,sz)]),prev=new Map();let best=[sx,sz],bestScore=Math.abs(sx-tx)+Math.abs(sz-tz);
+  for(let qi=0;qi<queue.length&&qi<1600;qi++){
+    const [x,z]=queue[qi],score=Math.abs(x-tx)+Math.abs(z-tz);if(score<bestScore){best=[x,z];bestScore=score}if(score===0)break;
+    for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,nz=z+dz,k=key(nx,nz);if(seen.has(k)||!free(nx,nz,.43))continue;seen.add(k);prev.set(k,key(x,z));queue.push([nx,nz])}
   }
-  function blobPath(c) {
-    c.beginPath();
-    c.moveTo(87,24); c.bezierCurveTo(55,23,47,51,51,80); c.bezierCurveTo(56,101,43,112,33,128);
-    c.bezierCurveTo(18,148,26,164,41,170); c.bezierCurveTo(50,174,58,164,64,155);
-    c.lineTo(65,190); c.bezierCurveTo(66,206,81,209,88,196); c.lineTo(91,179);
-    c.lineTo(95,197); c.bezierCurveTo(100,211,115,206,117,191); c.lineTo(120,153);
-    c.bezierCurveTo(129,164,135,175,146,169); c.bezierCurveTo(160,161,156,144,144,126);
-    c.bezierCurveTo(133,112,127,99,130,78); c.bezierCurveTo(135,50,119,24,87,24); c.closePath();
+  let k=key(best[0],best[1]),first=k,start=key(sx,sz);while(prev.has(k)&&prev.get(k)!==start){k=prev.get(k);first=k}
+  if(prev.get(k)===start)first=k;const [x,z]=first.split(',').map(Number);return new THREE.Vector3(x,0,z)
+}
+function lineClear(a,b){const dir=new THREE.Vector3(b.x-a.x,0,b.z-a.z);const len=dir.length();if(len<.1)return true;dir.normalize();const pos=new THREE.Vector3(a.x,1.1,a.z);raycaster.set(pos,dir);raycaster.far=len-.3;return raycaster.intersectObjects(solids,false).length===0}
+function distance(a,b){return Math.hypot(a.x-b.x,a.z-b.z)}
+function resetRound(){
+  removePeople();state.active=true;state.finished=false;state.phase='prep';state.time=state.role==='hider'?30:15;state.misses=0;state.pose=0;state.tauntCooldown=0;state.targetNoise=0;state.yaw=state.role==='seeker'?0:.5;state.pitch=state.role==='seeker'?-.07:.12;
+  const p=state.role==='hider'?[-2,1]:[0,15];player=makePerson(p[0],p[1],'#ecece8',state.role==='seeker');playerParts=player.userData.parts;
+  if(state.role==='hider'){
+    const hunter=makePerson(-15,-15,'#e8e8e5',true);hunter.userData.waypoint.set(-15,0,-15);hunters.push(hunter);
+    for(let i=0;i<3;i++){const [x,z]=botPlace();const b=makePerson(x,z,'#ebeae6');colorBot(b,i);bots.push(b)}
+  }else{
+    for(let i=0;i<5;i++){const [x,z]=botPlace();const b=makePerson(x,z,'#ecece7');colorBot(b,i);bots.push(b)}
   }
-  function drawOutline() { pctx.save(); blobPath(pctx); pctx.lineWidth=3;pctx.strokeStyle='#23313c';pctx.stroke();pctx.restore(); }
-  function resetPaint() {
-    pctx.clearRect(0,0,180,220); blobPath(pctx); pctx.fillStyle='#f6f7ef';pctx.fill();drawOutline();updateCamo();
-  }
-  function paintAt(x,y) {
-    pctx.save();blobPath(pctx);pctx.clip();pctx.strokeStyle=color;pctx.fillStyle=color;
-    pctx.lineWidth=brush;pctx.lineCap='round';pctx.lineJoin='round';
-    if(lastPaintPoint){pctx.beginPath();pctx.moveTo(lastPaintPoint.x,lastPaintPoint.y);pctx.lineTo(x,y);pctx.stroke();}
-    else {pctx.beginPath();pctx.arc(x,y,brush/2,0,Math.PI*2);pctx.fill();}
-    pctx.restore();lastPaintPoint={x,y};drawOutline();updateCamo();
-  }
-  function paintPos(e) { const r=paint.getBoundingClientRect();return {x:(e.clientX-r.left)*180/r.width,y:(e.clientY-r.top)*220/r.height}; }
-  paint.addEventListener('pointerdown',e=>{painting=true;lastPaintPoint=null;paint.setPointerCapture(e.pointerId);const q=paintPos(e);paintAt(q.x,q.y);});
-  paint.addEventListener('pointermove',e=>{if(!painting)return;const q=paintPos(e);paintAt(q.x,q.y);});
-  paint.addEventListener('pointerup',()=>{painting=false;lastPaintPoint=null;});paint.addEventListener('pointercancel',()=>{painting=false;lastPaintPoint=null;});
+  $('menu').classList.add('hidden');$('end').classList.add('hidden');$('hud').classList.remove('hidden');$('paintPanel').classList.add('hidden');
+  $('roleIcon').textContent=state.role==='hider'?'◉':'🔎';$('roleLabel').textContent=state.role==='hider'?'ผู้ซ่อน':'ผู้หา';
+  $('actions').classList.toggle('hidden',state.role==='seeker');$('crosshair').classList.toggle('hidden',state.role!=='seeker');
+  weapon.visible=state.role==='seeker';
+  $('status').textContent=state.role==='hider'?'WASD เดิน · เมาส์หมุนกล้อง · Shift วิ่ง':'WASD เดิน · ลากเมาส์เล็ง · คลิกยิงผู้ซ่อน';
+  $('hint').textContent=state.role==='hider'?'ซ่อน ระบายสี แล้วอยู่ให้รอดจนหมดเวลา':'ยิงตัวละครที่พรางสีให้ครบ ยิงพลาดได้ไม่เกิน 4 ครั้ง';
+  $('mobile').classList.toggle('hidden',!matchMedia('(pointer:coarse)').matches);
+  $('mobileAct').textContent=state.role==='seeker'?'ยิง':'สี';
+  toast(state.role==='hider'?'คุณเป็นผู้ซ่อน! มีเวลา 30 วินาทีเตรียมตัว':'คุณเป็นผู้หา! รอผู้ซ่อนเตรียมตัว 15 วินาที');updateHUD();
+}
 
-  function setColor(c) {
-    color=c;$('colorPicker').value=c;
-    document.querySelectorAll('.swatch').forEach(el=>el.classList.toggle('active',el.dataset.color.toLowerCase()===c.toLowerCase()));
+function toast(message){const el=$('toast');el.textContent=message;el.classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.add('hidden'),3000)}
+function updateHUD(){
+  $('phaseLabel').textContent=state.phase==='prep'?'เตรียมซ่อน':'กำลังค้นหา';
+  const seconds=Math.max(0,Math.ceil(state.time));$('clock').textContent=`${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;
+  $('hunterCount').textContent=state.role==='hider'?hunters.length:1;
+  $('hiderCount').textContent=bots.filter(b=>b.userData.alive).length+(state.role==='hider'?1:0);
+}
+function finish(win,reason){if(state.finished)return;state.finished=true;state.active=false;document.exitPointerLock?.();$('end').classList.remove('hidden');$('endEyebrow').textContent=win?'ชนะแล้ว':'จบรอบ';$('endTitle').textContent=win?'คุณชนะ!':'คุณแพ้';$('endText').textContent=reason;}
+function updateMovement(dt){
+  if(!player)return;
+  const axisX=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+state.mobileX;
+  const axisZ=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0)+state.mobileY;
+  const length=Math.hypot(axisX,axisZ);if(length<.05)return;
+  const nx=axisX/Math.max(1,length), nz=axisZ/Math.max(1,length);
+  const fast=keys.has('ShiftLeft')||keys.has('ShiftRight')||state.sprint;
+  const speed=(fast?6.4:3.8)*(state.pose===0?1:.65);
+  const dx=(Math.cos(state.yaw)*nx+Math.sin(state.yaw)*nz)*speed*dt;
+  const dz=(Math.sin(state.yaw)*nx-Math.cos(state.yaw)*nz)*speed*dt;
+  move(player,dx,dz);
+  if(state.role==='hider')player.rotation.y=Math.atan2(dx,-dz);
+  if(fast&&state.phase==='search'&&state.role==='hider')state.targetNoise=Math.max(state.targetNoise,1.2);
+}
+function wander(bot,dt,speed=1.7){
+  const data=bot.userData;data.brain-=dt;
+  if(data.brain<=0||distance(bot.position,data.waypoint)<.8){const [x,z]=randomPlace();data.waypoint.set(x,0,z);data.brain=2+Math.random()*4}
+  const dir=new THREE.Vector3().subVectors(data.waypoint,bot.position);dir.y=0;dir.normalize();
+  move(bot,dir.x*speed*dt,dir.z*speed*dt);bot.rotation.y=Math.atan2(dir.x,-dir.z);
+}
+function nearestHider(hunter){let best=null,score=-1;const possible=[player,...bots].filter(o=>o&&o.userData.alive&&!(o===player&&state.role==='seeker'));
+  for(const h of possible){const dist=distance(hunter.position,h.position);if(dist>12||!lineClear(hunter.position,h.position))continue;
+    const visual=h.userData.parts;const colors=[...visual.head,...visual.body,...visual.arms,...visual.legs].map(m=>m.material.color);
+    const brightness=colors.reduce((s,c)=>s+c.r+c.g+c.b,0)/(colors.length*3);
+    const visibility=(h.userData.pose===0?1:h.userData.pose===1?.72:.46)*(brightness>.77?1:.78);
+    const range=(h===player&&state.targetNoise>0?14:8.7)*visibility;
+    const s=range-dist;if(s>score){score=s;best=h}
   }
-  swatchColors.forEach(c=>{const b=document.createElement('button');b.type='button';b.className='swatch';b.style.background=c;b.dataset.color=c;b.title=c;b.setAttribute('aria-label',`เลือกสี ${c}`);b.onclick=()=>setColor(c);$('swatches').appendChild(b);});
-  $('colorPicker').addEventListener('input',e=>setColor(e.target.value));
-  $('brushSize').addEventListener('input',e=>{brush=Number(e.target.value);$('brushValue').textContent=brush;});
-  $('resetPaintBtn').onclick=()=>{resetPaint();toast('ล้างสีแล้ว');};
-  $('eyedropperBtn').onclick=()=>{eyedropper=!eyedropper;$('eyedropperBtn').classList.toggle('active',eyedropper);$('eyedropperBadge').hidden=!eyedropper;};
-
-  function drawBackground(c) {
-    const wall=c.createLinearGradient(0,0,W,330);wall.addColorStop(0,'#855c52');wall.addColorStop(.52,'#6e4d55');wall.addColorStop(1,'#4c4857');c.fillStyle=wall;c.fillRect(0,0,W,340);
-    for(let row=0;row<3;row++)for(let col=0;col<7;col++){
-      const x=col*142-10,y=row*105-10;
-      roundRect(c,x,y,138,99,4,'#251d2866','#c18a6a66');
-      roundRect(c,x+8,y+8,122,82,3,row%2?'#ffffff08':'#00000010','#e5b79422');
-      c.fillStyle='#f6d8a91c';c.fillRect(x+12,y+12,113,3);
-    }
-    c.fillStyle='#2a2730';c.fillRect(0,309,W,23);c.fillStyle='#ba8668';c.fillRect(0,308,W,5);
-    const floor=c.createLinearGradient(0,332,0,H);floor.addColorStop(0,'#aa866e');floor.addColorStop(1,'#725f5d');c.fillStyle=floor;c.fillRect(0,332,W,H-332);
-    c.strokeStyle='#3b334055';c.lineWidth=3;
-    for(let y=341;y<660;y+=72){c.beginPath();c.moveTo(0,y);c.lineTo(W,y);c.stroke();}
-    for(let x=-150;x<1150;x+=160){c.beginPath();c.moveTo(x,332);c.lineTo(x+160,600);c.stroke();}
-    // Framed poster
-    roundRect(c,350,56,169,160,5,'#332a36','#d5ac71');roundRect(c,362,68,145,135,2,'#263c4b');
-    c.fillStyle='#f4c881';c.beginPath();c.arc(433,111,22,0,Math.PI*2);c.fill();
-    c.fillStyle='#66857a';c.beginPath();c.moveTo(366,193);c.lineTo(418,125);c.lineTo(456,183);c.lineTo(474,147);c.lineTo(503,193);c.fill();
-    // Party bunting
-    c.strokeStyle='#f1c882';c.lineWidth=3;c.beginPath();c.moveTo(0,46);c.quadraticCurveTo(480,138,960,44);c.stroke();
-    const colors=['#dc7168','#edc071','#8cb48a','#88a8c3','#b48bc4'];
-    for(let i=0;i<16;i++){let x=i*64+7,y=48+Math.sin(i/15*Math.PI)*40;c.fillStyle=colors[i%5];c.beginPath();c.moveTo(x,y);c.lineTo(x+20,y+31);c.lineTo(x+42,y);c.fill();}
-    // Shelf and books
-    roundRect(c,39,135,210,232,4,'#43333b','#d4a478');
-    for(let j=0;j<3;j++){c.fillStyle='#b78764';c.fillRect(51,195+j*64,186,10);for(let i=0;i<13;i++){let bh=25+(i*13+j*7)%27;let bx=57+i*13;c.fillStyle=colors[(i+j)%5];c.fillRect(bx,195+j*64-bh,9,bh);}}
-    // Sofa and rug
-    c.fillStyle='#4c3d4b';c.beginPath();c.ellipse(485,490,244,69,0,0,Math.PI*2);c.fill();
-    roundRect(c,565,295,267,106,26,'#385b65','#82a1a0');
-    roundRect(c,549,357,305,96,24,'#456b70','#789793');
-    roundRect(c,569,423,25,58,8,'#2b3e44');roundRect(c,809,423,25,58,8,'#2b3e44');
-    for(let i=0;i<4;i++)roundRect(c,582+i*58,373,54,49,10,i%2?'#527880':'#5b8286','#ffffff22');
-    // Plant
-    roundRect(c,876,396,52,69,9,'#bb875e','#e0ad7f');
-    for(let i=0;i<9;i++){let a=i*Math.PI*2/9;c.save();c.translate(901,379);c.rotate(a);c.fillStyle=i%2?'#426c56':'#648a62';c.beginPath();c.ellipse(0,-36,13,47,.25,0,Math.PI*2);c.fill();c.restore();}
-    // Party balloons
-    for(let i=0;i<11;i++){let x=270+(i%6)*32+(i%2)*11,y=293+Math.floor(i/6)*32;c.strokeStyle='#a79779';c.lineWidth=1;c.beginPath();c.moveTo(x,y+28);c.lineTo(x+4,436);c.stroke();c.fillStyle=['#db766b','#e9b95f','#7499c0','#7ca875'][i%4];c.beginPath();c.ellipse(x,y,19,24,0,0,Math.PI*2);c.fill();c.fillStyle='#ffffff44';c.beginPath();c.ellipse(x-6,y-7,4,8,-.5,0,Math.PI*2);c.fill();}
-    // Dark corner behind furniture for a hiding choice
-    c.fillStyle='#3e3940a0';c.fillRect(0,371,169,60);
-    roundRect(c,37,424,120,72,5,'#635247','#d1a57b');c.fillStyle='#8d6c57';c.fillRect(48,438,98,5);
-    for(let i=0;i<5;i++){c.fillStyle=colors[i];c.beginPath();c.arc(63+i*18,423-(i%2)*8,12,0,Math.PI*2);c.fill();}
+  return score>0?best:null;
+}
+function updateAI(dt){
+  if(state.phase==='prep'){
+    for(const b of bots){if(b.userData.brain>0)wander(b,dt,2.0);else if(Math.random()<.02){b.userData.brain=4+Math.random()*3}}
+    return;
   }
-
-  const coverZones=[{x:55,y:369,w:190,h:112},{x:548,y:358,w:312,h:121},{x:857,y:354,w:83,h:120}];
-  function coverBonus(){return coverZones.some(z=>player.x>z.x&&player.x<z.x+z.w&&player.y>z.y&&player.y<z.y+z.h)?18:0;}
-  function colorDistance(a,b){return Math.sqrt((a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2)/441.7;}
-  function updateCamo(){
-    if(!bctx)return;
-    const bg=bctx.getImageData(clamp(Math.round(player.x),0,959),clamp(Math.round(player.y-20),0,599),1,1).data;
-    const px=pctx.getImageData(0,0,180,220).data;
-    const pts=[[88,54],[77,80],[102,84],[85,112],[103,135],[69,139],[126,139],[78,178],[104,178]];
-    let d=0;for(const [x,y] of pts){const k=(y*180+x)*4;d+=colorDistance([px[k],px[k+1],px[k+2]],bg);}
-    camo=clamp(Math.round(95-(d/pts.length)*125+coverBonus()),3,98);
-    $('camoValue').textContent=camo+'%';$('camoBar').style.width=camo+'%';
-    $('camoHint').textContent=camo>70?'เนียนมาก! จุดนี้เหมาะกับสีที่เลือก':camo>40?'พอใช้ได้ ลองปรับสีหรือย้ายจุด':'เด่นเกินไป ลองดูดสีจากฉาก';
+  for(const b of bots){if(!b.userData.alive)continue;if(state.role==='seeker'){
+      if(distance(b.position,player.position)<5&&Math.random()<dt*.8){b.userData.brain=2;wander(b,dt,3.4)}
+      else if(Math.random()<dt*.16)wander(b,dt,1.2);
+    }else if(Math.random()<dt*.07)wander(b,dt,1.4)}
+  for(const hunter of hunters){const target=nearestHider(hunter);if(target){hunter.userData.waypoint.copy(target.position);hunter.userData.brain=1.7}else hunter.userData.brain-=dt;
+    if(hunter.userData.brain<=0){const [x,z]=randomPlace();hunter.userData.waypoint.set(x,0,z);hunter.userData.brain=3+Math.random()*2}
+    hunter.userData.navTick=(hunter.userData.navTick||0)-dt;
+    if(hunter.userData.navTick<=0||!hunter.userData.navStep||distance(hunter.position,hunter.userData.navStep)<.6){hunter.userData.navStep=nextNavStep(hunter.position,hunter.userData.waypoint);hunter.userData.navTick=.65}
+    const dir=new THREE.Vector3().subVectors(hunter.userData.navStep,hunter.position);dir.y=0;const d=dir.length();if(d>.1){dir.normalize();move(hunter,dir.x*dt*(target?3.4:2.1),dir.z*dt*(target?3.4:2.1));hunter.rotation.y=Math.atan2(dir.x,-dir.z)}
+    if(target&&distance(hunter.position,target.position)<1.25){if(target===player){finish(false,'ผู้หาจับคุณได้ ลองเปลี่ยนสีหรือแอบหลังสิ่งกีดขวาง')}else{target.userData.alive=false;scene.remove(target);const infected=makePerson(target.position.x,target.position.z,'#eeeeeb',true);hunters.push(infected);toast('ผู้ซ่อนถูกจับและกลายเป็นผู้หา!');updateHUD()}}
   }
-  function setPlayerFromPointer(e){
-    const r=scene.getBoundingClientRect();let x=(e.clientX-r.left)*W/r.width,y=(e.clientY-r.top)*H/r.height;
-    if(eyedropper){const d=bctx.getImageData(clamp(Math.round(x),0,959),clamp(Math.round(y),0,599),1,1).data;setColor(hex(d[0],d[1],d[2]));eyedropper=false;$('eyedropperBtn').classList.remove('active');$('eyedropperBadge').hidden=true;toast('ดูดสีแล้ว ระบายตัวละครได้เลย');return;}
-    if(phase==='prep'){player.x=clamp(x,32,928);player.y=clamp(y,150,548);updateCamo();toast('ย้ายที่ซ่อนแล้ว');}
+}
+function setCamera(dt){
+  if(!player){camera.position.set(Math.sin(previewSpin)*11,7,Math.cos(previewSpin)*11);camera.lookAt(0,1,0);return}
+  if(state.role==='seeker'){
+    player.visible=false;camera.position.set(player.position.x,1.65,player.position.z);
+    camera.rotation.order='YXZ';camera.rotation.y=state.yaw;camera.rotation.x=state.pitch;
+  }else{
+    player.visible=true;const p=player.position;const cdist=4.5,alt=2.25;
+    const desired=new THREE.Vector3(p.x+Math.sin(state.yaw)*cdist,alt+state.pitch*3.2,p.z+Math.cos(state.yaw)*cdist);
+    // Pull the camera forward when a wall blocks the view of the player.
+    const origin=new THREE.Vector3(p.x,1.15,p.z);const direction=desired.clone().sub(origin);const len=direction.length();raycaster.set(origin,direction.normalize());raycaster.far=len;
+    const hit=raycaster.intersectObjects(solids,false)[0];if(hit)desired.copy(origin).add(direction.multiplyScalar(Math.max(.45,hit.distance-.28)));
+    camera.position.lerp(desired,Math.min(1,dt*12));camera.lookAt(p.x,1.08+state.pitch,p.z);
   }
-  scene.addEventListener('pointerdown',setPlayerFromPointer);
-  window.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();keys.add(e.key.toLowerCase());});
-  window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
-
-  function toast(s){$('sceneToast').textContent=s;$('sceneToast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('sceneToast').classList.remove('show'),2300);}
-  function setStatus(title,body){$('statusTitle').textContent=title;$('statusText').textContent=body;}
-  function showOverlay(title,text,button){$('overlayTitle').innerHTML=title;$('overlayText').textContent=text;$('overlayBtn').textContent=button;$('overlay').classList.remove('hidden');}
-  function start(){phase='prep';remaining=45;detection=0;elapsed=0;moveHeat=0;player={x:500,y:384};seeker={x:80,y:430,dir:1};resetPaint();$('overlay').classList.add('hidden');$('phaseTag').textContent='เตรียมซ่อน';$('phaseInstruction').textContent='คลิกในฉากเพื่อย้ายตัวละคร';$('timerLabel').textContent='เตรียมตัว';$('huntBtn').disabled=false;$('detectBar').style.width='0%';$('detectValue').textContent='0%';setStatus('กำลังเตรียมซ่อน','ลองดูดสีจากฉาก แล้วระบายตัวละครให้กลืนกับจุดที่เลือก');toast('ระบายสี แล้วกดเริ่มค้นหา');}
-  function startHunt(){if(phase!=='prep')return;phase='hunt';$('phaseTag').textContent='ผู้ค้นหามาแล้ว';$('phaseInstruction').textContent='หลบแสงไฟฉายให้อยู่รอด 45 วินาที';$('huntBtn').disabled=true;setStatus('ซ่อนให้ดี','เดินได้ แต่การเคลื่อนไหวจะทำให้ถูกสังเกตง่ายขึ้น');toast('ผู้ค้นหากำลังมา!');}
-  function end(won){phase=won?'won':'lost';const score=won?45:elapsed;if(score>best){best=score;localStorage.setItem('chromaHideBest',best.toFixed(1));$('bestScore').textContent=best.toFixed(1);} $('phaseTag').textContent=won?'ชนะแล้ว':'ถูกพบแล้ว';setStatus(won?'เอาตัวรอดสำเร็จ':'ถูกจับได้',won?'สีของคุณกลืนกับฉากได้ดี':'ลองเปลี่ยนที่ซ่อนและระบายสีให้ใกล้ฉากมากขึ้น');showOverlay(won?'พรางตัว<em>สำเร็จ!</em>':'ถูกผู้ค้นหา<em>พบแล้ว</em>',won?`คุณรอดครบ 45 วินาที ความกลมกลืน ${camo}%`:`คุณรอด ${score.toFixed(1)} วินาที · ความกลมกลืน ${camo}%`,'เล่นอีกครั้ง →');}
-  $('overlayBtn').onclick=()=>{if(phase==='help'){phase=preHelpPhase;$('overlay').classList.add('hidden');return;}start();};
-  $('huntBtn').onclick=startHunt;
-  $('helpBtn').onclick=()=>{if(phase==='help')return;preHelpPhase=phase;phase='help';showOverlay('วิธี<em>เล่น</em>','เลือกจุดในฉาก ใช้ชุดสีหรือปุ่มดูดสี แล้วลากเพื่อระบายตัวละคร เมื่อพร้อม กดเริ่มค้นหา อยู่ให้ครบ 45 วินาทีโดยระวังแสงไฟฉายและอย่าเดินบ่อย','กลับไปเล่น →');};
-
-  if(document.modelContext?.registerTool){
-    const register=tool=>Promise.resolve(document.modelContext.registerTool(tool)).catch(()=>{});
-    register({name:'read_game_state',title:'Read game state',description:'Read the visible Chroma Hide phase, timer, camouflage score, and detection score.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute:()=>({phase,remaining:Math.max(0,Math.ceil(remaining)),camouflage:camo,detection:Math.round(detection)})});
-    register({name:'start_game',title:'Start game',description:'Begin a new preparation round in Chroma Hide.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false},execute:()=>{start();return {phase,camouflage:camo};}});
-    register({name:'prepare_camouflage',title:'Prepare camouflage',description:'Choose a hiding position and paint the whole character one color during the preparation phase.',inputSchema:{type:'object',properties:{x:{type:'number',minimum:32,maximum:928},y:{type:'number',minimum:150,maximum:548},color:{type:'string',pattern:'^#[0-9a-fA-F]{6}$'}},required:['x','y','color'],additionalProperties:false},annotations:{readOnlyHint:false},execute:input=>{if(phase!=='prep'||!input||typeof input.x!=='number'||typeof input.y!=='number'||input.x<32||input.x>928||input.y<150||input.y>548||typeof input.color!=='string'||!/^#[0-9a-fA-F]{6}$/.test(input.color))throw new Error('Invalid camouflage input or preparation phase is not active');player={x:input.x,y:input.y};setColor(input.color);pctx.clearRect(0,0,180,220);blobPath(pctx);pctx.fillStyle=input.color;pctx.fill();drawOutline();updateCamo();return {phase,camouflage:camo,position:{x:player.x,y:player.y}};}});
-    register({name:'start_search',title:'Start search',description:'End preparation and start the seeker round.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false},execute:()=>{if(phase!=='prep')throw new Error('The preparation phase is not active');startHunt();return {phase,remaining:Math.ceil(remaining)};}});
-  }
-
-  function drawPlayer(c,t){
-    const size=phase==='prep'? .43:.39;const bob=phase==='hunt'?Math.sin(t*2)*1.3:Math.sin(t*3)*2;
-    c.save();c.translate(player.x,player.y+bob);c.fillStyle='#16172088';c.beginPath();c.ellipse(0,8,35,10,0,0,Math.PI*2);c.fill();c.drawImage(paint,-90*size,-198*size,180*size,220*size);
-    c.fillStyle='#182231';c.beginPath();c.arc(-8,-56,2.7,0,Math.PI*2);c.arc(8,-56,2.7,0,Math.PI*2);c.fill();c.restore();
-    if(phase==='prep'){c.strokeStyle='#c6f77d';c.lineWidth=2;c.setLineDash([5,5]);c.beginPath();c.ellipse(player.x,player.y+7,33,12,0,0,Math.PI*2);c.stroke();c.setLineDash([]);}
-  }
-  function seekerTarget(t){const cycle=t%29;if(cycle<8)return {x:835,y:424};if(cycle<15)return {x:210,y:483};if(cycle<22)return {x:760,y:335};return {x:95,y:382};}
-  function drawSeeker(c,t){
-    const s=seeker;
-    c.save();c.translate(s.x,s.y);c.fillStyle='#17191d88';c.beginPath();c.ellipse(0,7,23,8,0,0,Math.PI*2);c.fill();
-    c.fillStyle='#222d37';roundRect(c,-14,-49,28,51,7,'#2c3441');c.fillStyle='#e7b8a2';c.beginPath();c.arc(0,-60,14,0,Math.PI*2);c.fill();
-    c.fillStyle='#35485c';roundRect(c,-18,-76,36,9,4,'#35485c');c.fillRect(-12,-81,24,7);
-    c.fillStyle='#e8e4cb';c.fillRect(s.dir>0?11:-16,-37,7,9);c.restore();
-  }
-  function render(t){
-    ctx.clearRect(0,0,W,H);ctx.drawImage(base,0,0);
-    if(phase==='hunt'||phase==='won'||phase==='lost'){
-      const sx=seeker.x+(seeker.dir>0?18:-18),sy=seeker.y-32,reach=335;
-      const grad=ctx.createRadialGradient(sx,sy,10,sx+seeker.dir*reach*.65,sy,reach);
-      grad.addColorStop(0,'#fff2b844');grad.addColorStop(1,'#fff2b800');ctx.fillStyle=grad;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(sx+seeker.dir*reach,sy-120);ctx.lineTo(sx+seeker.dir*reach,sy+140);ctx.closePath();ctx.fill();
-      drawSeeker(ctx,t);
-    }
-    drawPlayer(ctx,t);
-    if(phase==='prep'){ctx.fillStyle='#e8f6d3';ctx.font='600 16px Kanit, sans-serif';ctx.textAlign='center';ctx.fillText('คุณอยู่ตรงนี้',player.x,player.y-100);}
-    if(phase==='hunt'&&detection>20){ctx.fillStyle=`rgba(255,85,83,${Math.min(.18,detection/600)})`;ctx.fillRect(0,0,W,H);}
-  }
-  function tick(now){
-    const dt=clamp((now-last)/1000,0,.05);last=now;
-    if(phase==='prep'||phase==='hunt'){
-      let dx=Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft'));
-      let dy=Number(keys.has('s')||keys.has('arrowdown'))-Number(keys.has('w')||keys.has('arrowup'));
-      if(dx||dy){const len=Math.hypot(dx,dy);player.x=clamp(player.x+dx/len*145*dt,32,928);player.y=clamp(player.y+dy/len*145*dt,150,548);moveHeat=1;updateCamo();}else moveHeat=Math.max(0,moveHeat-dt*1.5);
-    }
-    if(phase==='hunt'&&!($('overlay').classList.contains('hidden')===false)){
-      elapsed+=dt;remaining=45-elapsed;$('timerLabel').textContent=fmt(remaining);
-      const target=seekerTarget(elapsed);const vx=target.x-seeker.x,vy=target.y-seeker.y,dist=Math.hypot(vx,vy);
-      if(dist>4){const v=Math.min(dist,90*dt);seeker.x+=vx/dist*v;seeker.y+=vy/dist*v;seeker.dir=vx>=0?1:-1;}
-      const px=player.x-seeker.x,py=player.y-30-seeker.y+32;
-      const inCone=px*seeker.dir>10&&Math.abs(px)<335&&Math.abs(py)<105+Math.abs(px)*.2;
-      if(inCone){const proximity=1-clamp(Math.abs(px)/380,0,.85);detection+=dt*(7+(100-camo)*.5+moveHeat*32)*proximity;}
-      else detection-=dt*20;
-      detection=clamp(detection,0,100);
-      $('detectValue').textContent=Math.round(detection)+'%';$('detectBar').style.width=detection+'%';
-      if(detection>=100)end(false);else if(remaining<=0)end(true);
-      if(now-lastScoreUpdate>1000){updateCamo();lastScoreUpdate=now;}
-    }
-    render(now/1000);requestAnimationFrame(tick);
-  }
-  drawBackground(bctx);resetPaint();$('timerLabel').textContent='เตรียมตัว';requestAnimationFrame(tick);
-})();
-
+}
+function shoot(){
+  if(!state.active||state.role!=='seeker'||state.phase!=='search')return;
+  const now=performance.now();if(now-state.lastShot<420)return;state.lastShot=now;
+  weapon.position.z=-.75;setTimeout(()=>weapon.position.z=-.9,110);
+  const center=new THREE.Vector2(0,0);raycaster.setFromCamera(center,camera);raycaster.far=24;
+  const candidates=bots.filter(b=>b.userData.alive).flatMap(b=>b.children[0].children.filter(o=>o.isMesh));
+  const hits=raycaster.intersectObjects([...candidates,...solids],false);
+  const first=hits[0];let victim=null;if(first)victim=bots.find(b=>b.userData.alive&&b.children[0].children.includes(first.object));
+  if(victim){victim.userData.alive=false;scene.remove(victim);toast('เจอผู้ซ่อนแล้ว!');updateHUD();if(bots.every(b=>!b.userData.alive))finish(true,'คุณหาผู้ซ่อนครบทุกคนก่อนหมดเวลา')}
+  else{state.misses++;$('hitflash').style.opacity='1';setTimeout(()=>$('hitflash').style.opacity='0',130);toast(`ยิงพลาด ${state.misses}/5`);if(state.misses>=5)finish(false,'กระสุนพลาดครบ 5 ครั้งแล้ว')}
+}
+function choosePart(part){state.part=part;document.querySelectorAll('[data-part]').forEach(b=>b.classList.toggle('active',b.dataset.part===part))}
+function applyPaint(color){state.paintColor=color;tint(player,state.part,color);$('color').value=color;toast('ทาสีแล้ว! คลิกตัวละครเพื่อแต้มเฉพาะชิ้น')}
+function togglePaint(){if(state.role!=='hider'||!state.active)return;state.eyedropper=false;$('eyeBtn').classList.remove('active');$('paintPanel').classList.toggle('hidden');$('paintBtn').classList.toggle('active',!$('paintPanel').classList.contains('hidden'));document.exitPointerLock?.()}
+function taunt(){if(!state.active||state.role!=='hider')return;if(state.tauntCooldown>0){toast('รออีกสักครู่ก่อนส่งเสียง');return}state.tauntCooldown=8;state.targetNoise=5;toast('♪ วิ้ว! ผู้หาได้ยินเสียงคุณแล้ว');const ctx=new AudioContext(),osc=ctx.createOscillator(),gain=ctx.createGain();osc.type='sine';osc.frequency.setValueAtTime(850,ctx.currentTime);osc.frequency.exponentialRampToValueAtTime(1500,ctx.currentTime+.2);gain.gain.setValueAtTime(.12,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.36);osc.connect(gain).connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+.36)}
+function cyclePose(){if(!state.active||state.role!=='hider')return;state.pose=(state.pose+1)%3;posePerson(player,state.pose);toast(['ยืน','หมอบ','นอนราบ'][state.pose])}
+function pickColor(event){if(!state.eyedropper||!state.active)return;const rect=renderer.domElement.getBoundingClientRect();const uv=new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,-((event.clientY-rect.top)/rect.height)*2+1);raycaster.setFromCamera(uv,camera);const hit=raycaster.intersectObjects(props,false)[0];if(hit){const color=colorOf(hit.object.material);applyPaint(color)}else toast('เล็งวัตถุในฉากแล้วคลิกอีกครั้ง');state.eyedropper=false;$('eyeBtn').classList.remove('active')}
+function dabPaint(event){if(!state.active||state.role!=='hider'||$('paintPanel').classList.contains('hidden'))return false;const rect=renderer.domElement.getBoundingClientRect();const uv=new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,-((event.clientY-rect.top)/rect.height)*2+1);raycaster.setFromCamera(uv,camera);const meshes=Object.values(playerParts).flat();const hit=raycaster.intersectObjects(meshes,false)[0];if(!hit)return false;hit.object.material.color.set(state.paintColor);toast('แต้มสีลงบนตัวละครแล้ว');return true}
+function onResize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)}
+addEventListener('resize',onResize);
+addEventListener('keydown',event=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(event.code))event.preventDefault();keys.add(event.code);if(event.repeat)return;if(event.code==='KeyE')togglePaint();if(event.code==='KeyT')taunt();if(event.code==='KeyR')cyclePose();if(event.code==='Escape'&&state.eyedropper){state.eyedropper=false;toast('ยกเลิกดูดสี')}});
+addEventListener('keyup',event=>keys.delete(event.code));
+renderer.domElement.addEventListener('pointerdown',event=>{if(state.eyedropper){pickColor(event);return}if(dabPaint(event))return;state.drag=true;if(state.role==='seeker'&&state.active)shoot()});
+addEventListener('pointerup',()=>state.drag=false);
+addEventListener('pointermove',event=>{if(!state.active||!state.drag||state.eyedropper)return;state.yaw-=event.movementX*.004;state.pitch=THREE.MathUtils.clamp(state.pitch-event.movementY*.0035,-.42,.52)});
+$('start').onclick=()=>{state.map=$('map').value;state.role=$('role').value;loadMap(state.map);resetRound()};
+$('again').onclick=resetRound;
+$('back').onclick=()=>{state.active=false;$('end').classList.add('hidden');$('hud').classList.add('hidden');$('menu').classList.remove('hidden');removePeople()};
+$('paintBtn').onclick=togglePaint;$('closePaint').onclick=togglePaint;$('tauntBtn').onclick=taunt;$('poseBtn').onclick=cyclePose;
+$('eyeBtn').onclick=()=>{state.eyedropper=true;$('eyeBtn').classList.add('active');toast('คลิกสีของผนังหรือวัตถุในฉาก')};
+$('clearBtn').onclick=()=>applyPaint('#ecece8');$('color').oninput=e=>applyPaint(e.target.value);
+document.querySelectorAll('[data-part]').forEach(b=>b.onclick=()=>choosePart(b.dataset.part));choosePart('all');
+const palette=['#e9e8dc','#d7cfaa','#b7b196','#806c55','#5a4939','#2d2d2f','#9d6c4e','#d64843','#e7b84c','#7eac66','#367a94','#c5dde0','#e7c2ba','#f2f1ea','#8c94a4','#393e43'];
+for(const color of palette){const b=document.createElement('button');b.style.background=color;b.title=color;b.setAttribute('aria-label',`ใช้สี ${color}`);b.onclick=()=>applyPaint(color);$('swatches').appendChild(b)}
+// Touch movement uses a virtual joystick; dragging elsewhere rotates the camera.
+const joy=$('joy'),nub=$('nub');function moveJoy(e){const rect=joy.getBoundingClientRect(),x=e.clientX-rect.left-rect.width/2,y=e.clientY-rect.top-rect.height/2,len=Math.hypot(x,y)||1,scale=Math.min(1,38/len);const xx=x*scale,yy=y*scale;nub.style.transform=`translate(${xx}px,${yy}px)`;state.mobileX=xx/38;state.mobileY=-yy/38}
+joy.addEventListener('pointerdown',e=>{joy.setPointerCapture(e.pointerId);moveJoy(e)});joy.addEventListener('pointermove',e=>{if(joy.hasPointerCapture(e.pointerId))moveJoy(e)});joy.addEventListener('pointerup',()=>{state.mobileX=state.mobileY=0;nub.style.transform='' });
+$('mobileRun').onpointerdown=()=>state.sprint=true;$('mobileRun').onpointerup=()=>state.sprint=false;$('mobileAct').onclick=()=>state.role==='seeker'?shoot():togglePaint();
+function frame(){requestAnimationFrame(frame);const dt=Math.min(.045,clock3d.getDelta());previewSpin+=dt*.11;
+  if(state.active&&!state.finished){state.time-=dt;state.tauntCooldown=Math.max(0,state.tauntCooldown-dt);state.targetNoise=Math.max(0,state.targetNoise-dt);if(state.time<=0){if(state.phase==='prep'){state.phase='search';state.time=state.role==='hider'?140:170;toast('เริ่มค้นหาแล้ว!')}else finish(state.role==='hider',state.role==='hider'?'คุณซ่อนรอดจนหมดเวลา':'หมดเวลา ยังหาผู้ซ่อนไม่ครบ')}
+    updateMovement(dt);updateAI(dt);updateHUD()}
+  setCamera(dt);renderer.render(scene,camera)
+}
+loadMap('backrooms');player=makePerson(-2,1,'#eeeeeb');setCamera(1);frame();
