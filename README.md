@@ -1,29 +1,24 @@
-# Aebnian Classroom Game
+# Chroma Hide
 
-Aebnian is an original browser-based classroom hide-and-seek game. Teachers create quiz packs and host a room; students join with a link and nickname. The first release includes three original 3D maps and quiz-powered abilities.
+เกมซ่อนหาพรางตัวด้วยสีที่เล่นในเบราว์เซอร์ ได้แรงบันดาลใจจากแนวคิดการเล่นของ MECCHA CHAMELEON
 
-## Local setup
+## เล่นเกม
 
-Requirements: Node.js 22 or later and an existing Supabase project.
+เปิด [ลิงก์เกม](https://chroma-hide-game-20260926.new-earth18.chatgpt.site) ด้วยบัญชีเจ้าของไซต์ หรือเปิด `index.html` จากไฟล์ใน repo โดยตรง
 
-1. Copy `.env.example` to `.env` and fill in the Supabase project URL and publishable/anon key in both the `VITE_` and server variables.
-2. Apply the database schema with `npx supabase db push` after linking the local project using the Supabase CLI.
-3. Install packages with `npm install`.
-4. Start the combined Vite and Colyseus development server with `npm run dev`.
+## วิธีเล่น
 
-Teachers can sign up through the teacher portal. If email confirmation is enabled in Supabase Auth, confirm the address before signing in.
+1. คลิกจุดที่ต้องการซ่อนในฉาก
+2. เลือกสีหรือใช้ปุ่มดูดสีจากฉาก แล้วลากเพื่อระบายตัวละคร
+3. กด **เริ่มค้นหา** และหลบผู้ค้นหาให้ครบ 45 วินาที
 
-## Free hosting
+ใช้ WASD หรือปุ่มลูกศรเพื่อเดิน การเคลื่อนไหวทำให้ถูกตรวจพบง่ายขึ้น เกมบันทึกเวลารอดสูงสุดไว้ในเบราว์เซอร์เครื่องที่เล่น
 
-The included `render.yaml` describes a Render Free Docker Web Service. Connect the repository in Render, set the four Supabase environment values, and use the supplied health check. Create a Supabase Free project and apply `supabase/migrations/20260925143020_classroom_question_packs.sql` before opening a hosted classroom.
+## โครงสร้าง
 
-Free services can sleep, restart, or pause. A running room is temporary and a server restart ends its match. The free Render instance has limited CPU and memory; do not assume it can handle 50 simultaneous players until the planned capacity rehearsal passes on that service. Do not add a paid instance to work around a failed rehearsal without revisiting the free-hosting requirement.
+- `index.html` หน้าจอเกม
+- `style.css` รูปแบบหน้าจอ
+- `game.js` ระบบระบายสี ฉาก และผู้ค้นหา
 
-## Controls
+เกมนี้เป็นเกมเล่นคนเดียวแบบ 2D ใช้ HTML Canvas และ JavaScript โดยไม่ต้องติดตั้งแพ็กเกจหรือเชื่อมต่อเซิร์ฟเวอร์ระหว่างเล่น
 
-- Desktop: W/A/S/D or arrow keys to move; move the mouse to aim your facing direction.
-- Mobile: drag the on-screen movement pad.
-- Hiders can spend one charge to emit a decoy. Seekers can spend one charge to scan nearby.
-- Correct quiz answers grant one charge, up to two charges.
-
-Question packs are protected by Supabase Row Level Security and are visible only to their owning teacher. Room roles, movement, quiz answers, and round timing are managed by the Colyseus server.
