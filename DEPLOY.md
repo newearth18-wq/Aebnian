@@ -2,7 +2,7 @@
 
 ## ฐานข้อมูล
 
-โปรเจกต์ Supabase `Aebnian Classroom Game` ได้รับ migration ทั้งสองไฟล์ใน `supabase/migrations/` แล้ว หากใช้โปรเจกต์ใหม่ ให้รันไฟล์ตามลำดับและเปลี่ยน URL/publishable key ใน `supabase-public.json` และ `client/config.js` ให้ตรงกัน
+โปรเจกต์ Supabase `Aebnian Classroom Game` ได้รับ migration ทั้งสามไฟล์ใน `supabase/migrations/` แล้ว หากใช้โปรเจกต์ใหม่ ให้รันไฟล์ตามลำดับและเปลี่ยน URL/publishable key ใน `supabase-public.json` และ `client/config.js` ให้ตรงกัน
 
 ตั้งค่าอีเมลผู้ส่งและ redirect URL ของ Supabase Auth ให้ตรงกับโดเมนจริงก่อนให้ครูสมัครบัญชี บัญชีใหม่อาจต้องกดยืนยันอีเมลก่อนล็อกอิน
 
