@@ -199,16 +199,19 @@ function updateAI(dt){
     for(const b of bots){if(b.userData.brain>0)wander(b,dt,2.0);else if(Math.random()<.02){b.userData.brain=4+Math.random()*3}}
     return;
   }
-  for(const b of bots){if(!b.userData.alive)continue;if(state.role==='seeker'){
+  for(const b of bots){if(!b.userData.alive)continue;
+    const threat=hunters.find(h=>distance(h.position,b.position)<3.2&&lineClear(h.position,b.position));
+    if(threat){const away=new THREE.Vector3().subVectors(b.position,threat.position).normalize();move(b,away.x*dt*3.6,away.z*dt*3.6);b.rotation.y=Math.atan2(away.x,-away.z);continue}
+    if(state.role==='seeker'){
       if(distance(b.position,player.position)<5&&Math.random()<dt*.8){b.userData.brain=2;wander(b,dt,3.4)}
       else if(Math.random()<dt*.16)wander(b,dt,1.2);
     }else if(Math.random()<dt*.07)wander(b,dt,1.4)}
-  for(const hunter of hunters){const target=nearestHider(hunter);if(target){hunter.userData.waypoint.copy(target.position);hunter.userData.brain=1.7}else hunter.userData.brain-=dt;
+  for(const hunter of hunters){hunter.userData.spawnGrace=Math.max(0,(hunter.userData.spawnGrace||0)-dt);const target=hunter.userData.spawnGrace>0?null:nearestHider(hunter);if(target){hunter.userData.waypoint.copy(target.position);hunter.userData.brain=1.7}else hunter.userData.brain-=dt;
     if(hunter.userData.brain<=0){const [x,z]=randomPlace();hunter.userData.waypoint.set(x,0,z);hunter.userData.brain=3+Math.random()*2}
     hunter.userData.navTick=(hunter.userData.navTick||0)-dt;
     if(hunter.userData.navTick<=0||!hunter.userData.navStep||distance(hunter.position,hunter.userData.navStep)<.6){hunter.userData.navStep=nextNavStep(hunter.position,hunter.userData.waypoint);hunter.userData.navTick=.65}
-    const dir=new THREE.Vector3().subVectors(hunter.userData.navStep,hunter.position);dir.y=0;const d=dir.length();if(d>.1){dir.normalize();move(hunter,dir.x*dt*(target?3.4:2.1),dir.z*dt*(target?3.4:2.1));hunter.rotation.y=Math.atan2(dir.x,-dir.z)}
-    if(target&&distance(hunter.position,target.position)<1.25){if(target===player){infectPlayer()}else{target.userData.alive=false;scene.remove(target);const infected=makePerson(target.position.x,target.position.z,'#eeeeeb',true);hunters.push(infected);toast('ผู้ซ่อนถูกจับและกลายเป็นผู้หา!');updateHUD()}}
+    const dir=new THREE.Vector3().subVectors(hunter.userData.navStep,hunter.position);dir.y=0;const d=dir.length();if(d>.1){dir.normalize();move(hunter,dir.x*dt*(target?2.7:1.9),dir.z*dt*(target?2.7:1.9));hunter.rotation.y=Math.atan2(dir.x,-dir.z)}
+    if(target&&distance(hunter.position,target.position)<.95){if(target===player){infectPlayer()}else{target.userData.alive=false;scene.remove(target);const infected=makePerson(target.position.x,target.position.z,'#eeeeeb',true);infected.userData.spawnGrace=9;hunters.push(infected);toast('ผู้ซ่อนถูกจับและกลายเป็นผู้หา!');updateHUD()}}
   }
   if(state.role==='seeker'&&bots.every(b=>!b.userData.alive))finish(true,'ทีมผู้หาจับผู้ซ่อนครบทุกคนแล้ว');
 }
