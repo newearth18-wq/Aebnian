@@ -609,6 +609,7 @@ body.touch-device #crosshair.locked { width: 40px; height: 40px; }
   width: 100%;
   height: 100%;
   display: block;
+  touch-action: none;
 }
 
 .game-info {
@@ -1341,21 +1342,33 @@ body.touch-device .tip-hint { display: none; }
   position: absolute;
   left: 24px;
   bottom: 24px;
-  width: 160px;
-  height: 160px;
+  width: 132px;
+  height: 132px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.18);
   border: 2px solid rgba(255, 255, 255, 0.45);
   pointer-events: auto;
   touch-action: none;
 }
+#joystick::after {
+  content: 'เดิน';
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 5px);
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-shadow: 0 2px 4px #000;
+  pointer-events: none;
+}
 #joystickKnob {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 60px;
-  height: 60px;
-  margin: -30px 0 0 -30px;
+  width: 54px;
+  height: 54px;
+  margin: -27px 0 0 -27px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.85);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
@@ -1366,16 +1379,27 @@ body.touch-device .tip-hint { display: none; }
   bottom: 24px;
   display: grid;
   grid-template-columns: auto auto;
-  gap: 14px;
+  gap: 8px;
   align-items: end;
   justify-items: end;
   pointer-events: none;
 }
+#mobButtons::before {
+  content: 'ปัดจอเพื่อหมุนกล้อง';
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow: 0 2px 5px #000;
+}
 .mob-btn {
   pointer-events: auto;
   touch-action: none;
-  width: 84px;
-  height: 84px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.5);
   background: rgba(0, 0, 0, 0.4);
@@ -1391,7 +1415,7 @@ body.touch-device .tip-hint { display: none; }
 }
 .mob-btn span { font-size: 11px; font-weight: 600; margin-top: 2px; }
 .mob-btn:active { background: rgba(102, 126, 234, 0.7); }
-.mob-cam { width: 64px; height: 64px; font-size: 24px; background: rgba(0, 0, 0, 0.3); }
+.mob-cam { width: 56px; height: 56px; font-size: 22px; background: rgba(0, 0, 0, 0.3); }
 .mob-action { background: rgba(231, 76, 60, 0.55); }
 
 /* Question + paint-mode buttons, stacked above the joystick on the left so
@@ -1871,7 +1895,7 @@ body.touch-device #blendMeter { top: 142px; right: 12px; left: auto; }
    other. Require real vertical space before scaling anything up. */
 @media (min-width: 760px) and (min-height: 600px) {
   body.touch-device #joystick { width: 168px; height: 168px; }
-  body.touch-device #joystickKnob { width: 76px; height: 76px; }
+  body.touch-device #joystickKnob { width: 76px; height: 76px; margin: -38px 0 0 -38px; }
   body.touch-device .mob-btn { width: 104px; height: 104px; font-size: 32px; }
   body.touch-device .mob-btn span { font-size: 13px; }
   body.touch-device .mob-cam { width: 82px; height: 82px; font-size: 30px; }

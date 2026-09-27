@@ -5694,8 +5694,12 @@ class GameEngine {
 
   _setupInput() {
     this.raycaster = new THREE.Raycaster();
+    this._inputAbort?.abort();
+    this._inputAbort = new AbortController();
+    const signal = this._inputAbort.signal;
 
     window.addEventListener('keydown', (e) => {
+      if (this.gameState !== 'playing' || e.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
       this.keys[e.key.toLowerCase()] = true;
       // Stop space/arrows from scrolling the page while playing
       if (this.gameState === 'playing' && (e.key === ' ' || e.key.startsWith('Arrow'))) {
@@ -5712,18 +5716,30 @@ class GameEngine {
         const on = this.toggleEyedropper();
         if (this.onEyedropperToggle) this.onEyedropperToggle(on);
       }
-    });
-    window.addEventListener('keyup', (e) => { this.keys[e.key.toLowerCase()] = false; });
+    }, { signal });
+    window.addEventListener('keyup', (e) => { this.keys[e.key.toLowerCase()] = false; }, { signal });
+    window.addEventListener('focusin', (e) => {
+      if (e.target?.closest?.('input, textarea, select, [contenteditable="true"]')) this.keys = {};
+    }, { signal });
+    window.addEventListener('blur', () => {
+      this.keys = {};
+      this.setMoveInput(0, 0);
+      this._jumpHeld = false;
+      this.jumpRequested = false;
+      if (this.moveVel) this.moveVel.set(0, 0);
+    }, { signal });
 
     const cv = this.canvas;
     let mode = null; // 'paint' | 'camera'
+    let dragTouch = false;
     let lastX = 0, lastY = 0, downX = 0, downY = 0, moved = false;
 
-    const start = (x, y) => {
+    const start = (x, y, isTouchInput = false) => {
       // On a phone your own body fills much of the screen, so auto-painting
       // whatever you drag over made looking around nearly impossible. Touch
       // players paint only after switching paint mode on; mouse is unchanged.
-      const paintAllowed = this._canPaint() && (!this.touchDevice || this.paintMode);
+      dragTouch = isTouchInput;
+      const paintAllowed = this._canPaint() && (!isTouchInput || this.paintMode);
       if (paintAllowed && this._hitCharacter(x, y)) {
         mode = 'paint';
         this.beginStroke();
@@ -5741,11 +5757,10 @@ class GameEngine {
       if (mode === 'paint') {
         this._paintAt(x, y);
       } else {
-        // Thumbs travel less than a mouse, so touch gets a higher turn rate
-        const s = this.touchDevice ? 1.7 : 1;
+        // Keep the camera steady enough for small corrections on either device.
         const dx = x - lastX, dy = y - lastY;
-        this.camAngle -= dx * 0.01 * s;
-        this.camPitch = Math.max(-0.1, Math.min(1.2, this.camPitch + dy * 0.005 * s));
+        this.camAngle -= dx * (dragTouch ? 0.006 : 0.005);
+        this.camPitch = Math.max(-0.1, Math.min(1.2, this.camPitch + dy * 0.003));
       }
       lastX = x; lastY = y;
     };
@@ -5765,9 +5780,9 @@ class GameEngine {
       this._camDragging = false;
     };
 
-    cv.addEventListener('mousedown', (e) => start(e.clientX, e.clientY));
-    window.addEventListener('mousemove', (e) => move(e.clientX, e.clientY));
-    window.addEventListener('mouseup', (e) => end(e.clientX, e.clientY));
+    cv.addEventListener('mousedown', (e) => start(e.clientX, e.clientY), { signal });
+    window.addEventListener('mousemove', (e) => move(e.clientX, e.clientY), { signal });
+    window.addEventListener('mouseup', (e) => end(e.clientX, e.clientY), { signal });
 
     // Touch: track only fingers ON the canvas (targetTouches) so the on-screen
     // joystick (a separate element) can be held at the same time — you can
@@ -5777,6 +5792,7 @@ class GameEngine {
     let camTouchId = null;
     const dist2 = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
     cv.addEventListener('touchstart', (e) => {
+      e.preventDefault(); // keep touch gestures in the game and avoid a second mouse click
       const tt = e.targetTouches; // touches on the canvas only
       if (tt.length >= 2) {
         pinch = { d: dist2(tt[0], tt[1]), cam: this.camDist };
@@ -5786,8 +5802,8 @@ class GameEngine {
       }
       const t = e.changedTouches[0];
       camTouchId = t.identifier;
-      start(t.clientX, t.clientY);
-    }, { passive: true });
+      start(t.clientX, t.clientY, true);
+    }, { passive: false, signal });
     cv.addEventListener('touchmove', (e) => {
       const tt = e.targetTouches;
       if (pinch && tt.length >= 2) {
@@ -5800,24 +5816,24 @@ class GameEngine {
       for (const t of e.changedTouches) {
         if (t.identifier === camTouchId) { move(t.clientX, t.clientY); e.preventDefault(); break; }
       }
-    }, { passive: false });
+    }, { passive: false, signal });
     cv.addEventListener('touchend', (e) => {
       for (const t of e.changedTouches) {
         if (t.identifier === camTouchId) { end(t.clientX, t.clientY); camTouchId = null; }
       }
       if (e.targetTouches.length < 2) pinch = null;
-    }, { passive: true });
+    }, { passive: true, signal });
     cv.addEventListener('touchcancel', (e) => {
       for (const t of e.changedTouches) {
         if (t.identifier === camTouchId) { camTouchId = null; mode = null; this._camDragging = false; }
       }
-    }, { passive: true });
+    }, { passive: true, signal });
 
     // Mouse wheel zooms the camera in/out
     cv.addEventListener('wheel', (e) => {
       this.camDist = Math.max(5, Math.min(26, this.camDist + e.deltaY * 0.012));
       e.preventDefault();
-    }, { passive: false });
+    }, { passive: false, signal });
   }
 
   // Screen point -> normalized device coords
@@ -6692,6 +6708,10 @@ class GameEngine {
   _updateMovement(dt) {
     // The monitoring host doesn't have a character on the stage to move
     if (this.spectator) return;
+    if (document.getElementById('questionModal')?.style.display === 'flex') {
+      this.keys = {};
+      this.moveInput = null;
+    }
     let mx = 0, mz = 0;
     if (this.keys['w'] || this.keys['arrowup']) mz -= 1;
     if (this.keys['s'] || this.keys['arrowdown']) mz += 1;
@@ -6704,12 +6724,12 @@ class GameEngine {
     mz = Math.max(-1, Math.min(1, mz));
 
     // Q/E rotate the camera from the keyboard (no dragging needed)
-    if (this.keys['q']) this.camAngle += dt * 2.4;
-    if (this.keys['e']) this.camAngle -= dt * 2.4;
+    if (this.keys['q']) this.camAngle += dt * 1.7;
+    if (this.keys['e']) this.camAngle -= dt * 1.7;
 
     // --- Velocity-based movement: quick response, short glide ---
     if (!this.moveVel) this.moveVel = new THREE.Vector2(0, 0);
-    const MAX_SPEED = 10 * (this.speedMul || 1), ACCEL = 16;
+    const MAX_SPEED = 7.5 * (this.speedMul || 1);
     let targetX = 0, targetZ = 0;
     if (mx || mz) {
       // Input relative to camera facing
@@ -6717,11 +6737,12 @@ class GameEngine {
       const sin = Math.sin(ang), cos = Math.cos(ang);
       const wx = mx * cos - mz * sin;
       const wz = mx * sin + mz * cos;
-      const len = Math.hypot(wx, wz) || 1;
+      // Preserve the joystick's strength. Only diagonal input above 1 is normalized.
+      const len = Math.max(1, Math.hypot(wx, wz));
       targetX = (wx / len) * MAX_SPEED;
       targetZ = (wz / len) * MAX_SPEED;
     }
-    const k = Math.min(1, dt * ACCEL);
+    const k = Math.min(1, dt * (mx || mz ? 20 : 28));
     this.moveVel.x += (targetX - this.moveVel.x) * k;
     this.moveVel.y += (targetZ - this.moveVel.y) * k;
     if (Math.hypot(this.moveVel.x, this.moveVel.y) < 0.05) this.moveVel.set(0, 0);
@@ -6843,17 +6864,6 @@ class GameEngine {
       let turn = this.charHeading - this.character.rotation.y;
       turn = Math.atan2(Math.sin(turn), Math.cos(turn)); // wrap to [-PI, PI]
       this.character.rotation.y += turn * Math.min(1, dt * 14);
-
-      // Camera gently swings behind the walking direction — but ONLY when
-      // moving forward. Pure left/right strafing keeps the camera still so
-      // sidestepping stays predictable instead of spiralling.
-      const movingForward = mz < -0.2;
-      if (movingForward && !this._camDragging && !this.keys['q'] && !this.keys['e']) {
-        const targetCam = this.charHeading + Math.PI;
-        let camTurn = targetCam - this.camAngle;
-        camTurn = Math.atan2(Math.sin(camTurn), Math.cos(camTurn));
-        this.camAngle += camTurn * Math.min(1, dt * 1.8);
-      }
 
       // Walking animation: swing scales with actual speed + bounce + lean
       const speedRatio = Math.hypot(this.moveVel.x, this.moveVel.y) / MAX_SPEED;
@@ -7886,6 +7896,7 @@ class GameEngine {
   // artefacts through a shared context.
   dispose() {
     this.gameState = 'over';
+    this._inputAbort?.abort();
     // Teardown calls forceContextLoss() below, which fires webglcontextlost.
     // Without this flag the recovery handler treats our own cleanup as a GPU
     // crash and reboots — which disposes again, forever.

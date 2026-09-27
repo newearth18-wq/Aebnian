@@ -1181,14 +1181,15 @@ function wireLocalGameEngine() {
   updatePowersDisplay();
 
   if (currentGame.role === 'hider') {
-    roleInfo.textContent = '🎨 Hider — WASD เดิน · ลากบนตัววาดลาย · คลิกขวาเลือกท่าโพส · Space กระโดด';
+    roleInfo.textContent = '🎨 Hider — WASD เดินตามมุมกล้อง · ลากพื้นที่ว่างหมุนกล้อง · ลากบนตัววาดลาย · Space กระโดด';
   } else {
     roleInfo.textContent = '👁️ Seeker — ช่วงรอ: ทาสีตัวเองได้! · หลังเริ่มล่า: คลิกยิงเลเซอร์ 🌈';
     // Swap the HUD hints for the seeker role
     const hints = document.getElementById('controlHints');
     if (hints) {
       hints.innerHTML = `
-        <div><span class="hud-key">WASD</span> เดิน (กล้องตามเอง)</div>
+        <div><span class="hud-key">WASD</span> เดินตามมุมกล้อง</div>
+        <div><span class="hud-key">ลากพื้นที่ว่าง</span> หมุนกล้อง</div>
         <div><span class="hud-key">Space</span> กระโดด</div>
         <div><span class="hud-key">Q / E</span> หมุนกล้อง</div>
         <div><span class="hud-key">ลูกกลิ้ง</span> ซูม</div>
@@ -1468,6 +1469,7 @@ function setupMobileControls() {
   // stranded near the middle of it.
   const radius = () => Math.max(40, base.offsetWidth / 2 - 14);
   let touchId = null;
+  let originX = 0, originY = 0;
   const setKnob = (dx, dy) => {
     const R = radius();
     const dist = Math.min(R, Math.hypot(dx, dy));
@@ -1484,23 +1486,33 @@ function setupMobileControls() {
     touchId = null;
   };
   const joyAt = (t) => {
-    const r = base.getBoundingClientRect();
-    setKnob(t.clientX - (r.left + r.width / 2), t.clientY - (r.top + r.height / 2));
+    setKnob(t.clientX - originX, t.clientY - originY);
   };
   // Reposition the stick under the first touch inside the zone
   const summonJoy = (e) => {
+    if (touchId !== null) return;
     const t = e.changedTouches[0];
     touchId = t.identifier;
     const pr = mc.getBoundingClientRect();
     const half = base.offsetWidth / 2;
-    base.style.left = (t.clientX - pr.left - half) + 'px';
-    base.style.top = (t.clientY - pr.top - half) + 'px';
+    const x = Math.max(half + 8, Math.min(pr.width - half - 8, t.clientX - pr.left));
+    const y = Math.max(half + 8, Math.min(pr.height - half - 8, t.clientY - pr.top));
+    base.style.left = (x - half) + 'px';
+    base.style.top = (y - half) + 'px';
     base.style.bottom = 'auto';
+    originX = t.clientX; originY = t.clientY;
     setKnob(0, 0);
     e.preventDefault();
   };
   zone.addEventListener('touchstart', summonJoy, { passive: false });
-  base.addEventListener('touchstart', (e) => { touchId = e.changedTouches[0].identifier; joyAt(e.changedTouches[0]); e.preventDefault(); }, { passive: false });
+  base.addEventListener('touchstart', (e) => {
+    if (touchId !== null) return;
+    const t = e.changedTouches[0];
+    touchId = t.identifier;
+    originX = t.clientX; originY = t.clientY;
+    setKnob(0, 0);
+    e.preventDefault();
+  }, { passive: false });
   window.addEventListener('touchmove', (e) => {
     if (touchId === null) return;
     for (const t of e.changedTouches) if (t.identifier === touchId) { joyAt(t); e.preventDefault(); }
@@ -1508,7 +1520,10 @@ function setupMobileControls() {
   window.addEventListener('touchend', (e) => {
     for (const t of e.changedTouches) if (t.identifier === touchId) resetJoy();
   });
-  window.addEventListener('touchcancel', resetJoy);
+  window.addEventListener('touchcancel', (e) => {
+    for (const t of e.changedTouches) if (t.identifier === touchId) resetJoy();
+  });
+  window.addEventListener('blur', resetJoy);
 
   // --- Jump / climb (hold to keep climbing a wall) ---
   const jumpBtn = document.getElementById('mobJump');
@@ -1564,7 +1579,7 @@ function setupMobileControls() {
       iv = setInterval(() => {
         if (!gameEngine) return;
         held++;
-        const speed = Math.min(0.09, 0.028 + held * 0.0016);
+        const speed = Math.min(0.035, 0.02 + held * 0.0005);
         gameEngine._camDragging = true;
         gameEngine.rotateCamera(dir * speed);
       }, 16);
