@@ -116,6 +116,12 @@ class SoundFX {
     this._tone('sine', 900, 1300, 0.12, 0.08, 0.2);
   }
 
+  // Hider's short whistle; seekers hear it and get a brief direction cue.
+  whistle(volume = 1) {
+    this._tone('sine', 950, 1180, 0, 0.16, 0.3 * volume);
+    this._tone('sine', 1150, 820, 0.2, 0.21, 0.32 * volume);
+  }
+
   // 🚨 Siren "wee-woo" when a hidden target is found
   siren(cycles) {
     const n = cycles || 3;

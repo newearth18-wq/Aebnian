@@ -5,7 +5,10 @@ function handleMessage(data, playerId, ws, gameRooms, playerConnections) {
 
   switch (type) {
     case 'create_room':
-      handleCreateRoom(roomId, playerId, username, ws, gameRooms, playerConnections);
+      handleCreateRoom(data, playerId, ws, gameRooms, playerConnections).catch(error => {
+        console.error('Teacher room authorization failed:', error);
+        if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'error', message: 'ตรวจสอบบัญชีครูไม่สำเร็จ กรุณาลองใหม่' }));
+      });
       break;
 
     case 'join_room':
@@ -13,7 +16,7 @@ function handleMessage(data, playerId, ws, gameRooms, playerConnections) {
       break;
 
     case 'game_state_update':
-      handleGameStateUpdate(data, roomId, gameRooms, playerConnections);
+      handleGameStateUpdate(data, roomId, ws, gameRooms, playerConnections);
       break;
 
     case 'hider_painting_update':
@@ -26,7 +29,7 @@ function handleMessage(data, playerId, ws, gameRooms, playerConnections) {
       break;
 
     case 'game_action':
-      handleGameAction(data, roomId, gameRooms, playerConnections);
+      handleGameAction(data, roomId, ws, gameRooms, playerConnections);
       break;
 
     case 'next_round':
@@ -38,13 +41,26 @@ function handleMessage(data, playerId, ws, gameRooms, playerConnections) {
   }
 }
 
-function handleCreateRoom(roomId, playerId, username, ws, gameRooms, playerConnections) {
+async function handleCreateRoom(data, playerId, ws, gameRooms, playerConnections) {
+  const { roomId, username, teacherToken, questionSetId } = data;
+  const authorized = await questionStore.verifyTeacherPack(teacherToken, questionSetId);
+  if (!authorized) {
+    if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'error', message: 'ต้องล็อกอินครูและเลือกชุดข้อสอบที่เผยแพร่ของตนเอง' }));
+    return;
+  }
+  if (ws.readyState !== 1) return;
+  if (gameRooms.has(roomId)) {
+    ws.send(JSON.stringify({ type: 'error', message: 'รหัสห้องซ้ำ กรุณาสร้างใหม่' }));
+    return;
+  }
   if (!gameRooms.has(roomId)) {
     gameRooms.set(roomId, {
       id: roomId,
       players: new Map(),
       gameState: 'waiting',
       startTime: null,
+      questionSetId,
+      settings: { questionSetId },
       duration: 300 // 5 minutes default
     });
   }
@@ -202,16 +218,17 @@ function handleJoinRoom(roomId, playerId, username, role, ws, gameRooms, playerC
   console.log(`Player ${username} joined room ${roomId}`);
 }
 
-function handleGameStateUpdate(data, roomId, gameRooms, playerConnections) {
+function handleGameStateUpdate(data, roomId, ws, gameRooms, playerConnections) {
   const room = gameRooms.get(roomId);
 
   if (!room) return;
+  if (room.players.get(room.hostId)?.ws !== ws) return;
 
   room.gameState = data.gameState;
   room.startTime = data.startTime;
   // Store room settings (duration, questionSetId, mapId) from the creator
   if (data.settings) {
-    room.settings = data.settings;
+    room.settings = { ...data.settings, questionSetId: room.questionSetId };
     if (data.settings.duration) room.duration = data.settings.duration;
   }
 
@@ -304,10 +321,18 @@ function ensureBatchTimer(room) {
   }, BATCH_INTERVAL_MS);
 }
 
-function handleGameAction(data, roomId, gameRooms, playerConnections) {
+function handleGameAction(data, roomId, ws, gameRooms, playerConnections) {
   const room = gameRooms.get(roomId);
 
   if (!room) return;
+
+  // The sound cue is intentional, rate-limited, and tied to the actual socket.
+  if (data.action === 'whistle') {
+    const sender = room.players.get(data.playerId);
+    if (!sender || sender.ws !== ws || sender.role !== 'hider' || room.gameState !== 'playing') return;
+    if (Date.now() - (sender.lastWhistleAt || 0) < 8000) return;
+    sender.lastWhistleAt = Date.now();
+  }
 
   // High-frequency actions go into the per-room batch instead of instant relay
   if (data.action === 'move') {

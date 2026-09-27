@@ -16,6 +16,24 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value));
 }
 
+async function verifyTeacherPack(token, packId) {
+  if (!token || !isUuid(packId)) return false;
+  const headers = { apikey: key, Authorization: `Bearer ${token}` };
+  const userResponse = await fetch(new URL('/auth/v1/user', baseUrl), { headers });
+  if (!userResponse.ok) return false;
+  const user = await userResponse.json();
+  if (!user.id) return false;
+  const url = new URL('/rest/v1/quiz_packs', baseUrl);
+  url.searchParams.set('select', 'id');
+  url.searchParams.set('id', `eq.${packId}`);
+  url.searchParams.set('owner_id', `eq.${user.id}`);
+  url.searchParams.set('is_published', 'eq.true');
+  const packsResponse = await fetch(url, { headers });
+  if (!packsResponse.ok) return false;
+  const packs = await packsResponse.json();
+  return Array.isArray(packs) && packs.length === 1;
+}
+
 async function listSets() {
   const rows = await select('quiz_packs', {
     select: 'id,title,description', is_published: 'eq.true', order: 'title.asc'
@@ -61,4 +79,4 @@ async function validateAnswer(questionId, answer, setId = null) {
   return response.json();
 }
 
-module.exports = { listSets, listQuestions, validateAnswer };
+module.exports = { listSets, listQuestions, validateAnswer, verifyTeacherPack };

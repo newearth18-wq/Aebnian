@@ -112,6 +112,26 @@ body {
   animation: menuPop 0.4s ease;
 }
 
+.form-row.teacher-create-only { display: none; }
+body.teacher-logged-in .form-row.teacher-create-only { display: flex; }
+.teacher-auth, .teacher-account {
+  margin: 0 0 16px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(102, 126, 234, .1);
+  color: var(--ink-2);
+}
+.teacher-auth[hidden], .teacher-account[hidden] { display: none; }
+.teacher-auth p { margin: 5px 0 10px; font-size: 13px; }
+.teacher-auth form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.teacher-auth input { min-width: 0; padding: 10px; border: 2px solid #ddddec; border-radius: 10px; font: inherit; }
+.teacher-auth form button { grid-column: 1 / -1; }
+.teacher-auth a { display: inline-block; margin-top: 8px; }
+.teacher-auth #teacherAuthMessage { display: block; min-height: 1em; color: #9c3347; }
+.teacher-account { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.teacher-account .btn { flex: none; min-width: 0; }
+#createRoomBtn:disabled { opacity: .55; cursor: not-allowed; filter: grayscale(.5); }
+
 /* What the game offers, at a glance */
 .menu-feats {
   display: flex;
@@ -736,7 +756,7 @@ body.touch-device #crosshair.locked { width: 40px; height: 40px; }
   filter: grayscale(0.7);
 }
 
-/* ===== Radial pose wheel (right-click) ===== */
+/* ===== Large pose choices (right-click / P / touch) ===== */
 /* Full-screen dim behind the pose wheel; tap it to close. Above the mobile
    controls (z-index 40) so a stray joystick touch can't sit on top of it. */
 #poseBackdrop {
@@ -749,11 +769,13 @@ body.touch-device #crosshair.locked { width: 40px; height: 40px; }
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 340px;
-  height: 340px;
+  width: min(440px, calc(100vw - 32px));
+  max-height: min(78vh, 500px);
+  overflow-y: auto;
   transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(20, 20, 30, 0.55) 55%, rgba(20, 20, 30, 0.85) 100%);
+  border-radius: 24px;
+  background: rgba(20, 20, 30, .94);
+  padding: 18px;
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
   z-index: 60; /* above #mobileControls so pose buttons stay tappable */
   animation: wheelPop 0.15s ease;
@@ -767,29 +789,27 @@ body.touch-device #crosshair.locked { width: 40px; height: 40px; }
 }
 
 .pose-wheel-center {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  text-align: center;
   color: #fff;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 18px;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9);
-  pointer-events: none;
+  margin-bottom: 12px;
 }
+.pose-choice-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.pose-choice-grid[hidden] { display: none; }
 
 .pose-wheel-btn {
-  position: absolute;
-  transform: translate(-50%, -50%);
   background: rgba(255, 255, 255, 0.95);
   color: #222;
   border: none;
-  border-radius: 22px;
-  padding: 11px 16px;
-  font-size: 14px;
+  border-radius: 15px;
+  min-height: 64px;
+  padding: 10px 5px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  white-space: nowrap;
+  white-space: normal;
   touch-action: manipulation;
   transition: transform 0.12s, background 0.12s;
 }
@@ -798,8 +818,28 @@ body.touch-device #crosshair.locked { width: 40px; height: 40px; }
 .pose-wheel-btn:hover {
   background: #4ac8d6;
   color: #fff;
-  transform: translate(-50%, -50%) scale(1.15);
 }
+.pose-more-btn { display: block; width: 100%; margin-top: 10px; min-height: 44px; border: 1px solid #b8c1d1; border-radius: 12px; background: #303b51; color: #fff; font: inherit; }
+
+#soundCue {
+  position: absolute;
+  top: 17%;
+  left: 50%;
+  transform: translateX(-50%);
+  align-items: center;
+  gap: 12px;
+  padding: 11px 17px;
+  border-radius: 20px;
+  background: rgba(22, 31, 46, .86);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  z-index: 45;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 0 20px rgba(255, 227, 112, .45);
+}
+#soundCueArrow { display: inline-block; font-size: 24px; color: #ffe370; }
 
 .pose-btn:hover {
   background: #465c74;
@@ -1426,8 +1466,8 @@ body.touch-device .tip-hint { display: none; }
   position: absolute;
   left: 12px;
   top: 108px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, 64px);
   gap: 10px;
   pointer-events: none;
 }
@@ -1876,7 +1916,7 @@ body.touch-device #blendMeter { top: 142px; right: 12px; left: auto; }
   /* Stack the quiz/paint pair sideways instead of down the screen — stacked,
      they ran into the joystick zone on a screen this short */
   body.touch-device #mobLeftButtons {
-    flex-direction: row;
+    grid-template-columns: repeat(4, 54px);
     top: calc(146px + env(safe-area-inset-top));
   }
   body.touch-device #mobLeftButtons .mob-btn { width: 54px; height: 54px; font-size: 19px; }
@@ -1906,7 +1946,7 @@ body.touch-device #blendMeter { top: 142px; right: 12px; left: auto; }
   body.touch-device #mobLeftButtons {
     left: 20px;
     top: calc(140px + env(safe-area-inset-top));
-    flex-direction: row;
+    grid-template-columns: repeat(4, 82px);
   }
   body.touch-device #remainingCount.remaining-touch { top: calc(148px + env(safe-area-inset-top)); }
   body.touch-device .ability-panel { top: calc(58px + env(safe-area-inset-top)); }

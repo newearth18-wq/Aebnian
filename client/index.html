@@ -38,15 +38,31 @@
 
         <div id="joinBanner" class="join-banner" style="display: none;"></div>
 
+        <section id="teacherLoginPanel" class="teacher-auth">
+          <strong>👩‍🏫 ครูเข้าสู่ระบบก่อนสร้างห้อง</strong>
+          <p>ระบบจะแสดงเฉพาะชุดข้อสอบที่บัญชีของคุณสร้างและเผยแพร่</p>
+          <form id="teacherLoginForm">
+            <input id="teacherEmail" type="email" autocomplete="email" placeholder="อีเมลครู" required>
+            <input id="teacherPassword" type="password" autocomplete="current-password" placeholder="รหัสผ่าน" required>
+            <button type="submit" class="btn btn-primary">เข้าสู่ระบบ</button>
+          </form>
+          <span id="teacherAuthMessage" role="status" aria-live="polite"></span>
+          <a href="/admin">สมัครบัญชีหรือจัดการข้อสอบ</a>
+        </section>
+        <div id="teacherAccountPanel" class="teacher-account" hidden>
+          <span id="teacherIdentity"></span>
+          <button id="teacherLogoutBtn" type="button" class="btn btn-small">ออกจากระบบ</button>
+        </div>
+
         <div class="form-group">
           <label for="usernameInput">👤 ชื่อผู้เล่น</label>
           <input type="text" id="usernameInput" placeholder="ใส่ชื่อของคุณ" maxlength="20">
         </div>
 
-        <div class="form-row">
+        <div class="form-row teacher-create-only">
           <div class="form-group">
             <label>📚 ชุดข้อสอบ</label>
-            <button type="button" id="questionSetBtn" class="picker-btn">📚 ทุกชุด (ทั้งหมด)</button>
+            <button type="button" id="questionSetBtn" class="picker-btn">เข้าสู่ระบบเพื่อเลือกชุดข้อสอบ</button>
           </div>
           <div class="form-group">
             <label for="durationSelect">⏱️ ระยะเวลา</label>
@@ -66,7 +82,7 @@
         </div>
 
         <div class="button-group">
-          <button id="createRoomBtn" class="btn btn-primary">🎮 สร้างห้อง</button>
+          <button id="createRoomBtn" class="btn btn-primary" disabled>🎮 สร้างห้อง</button>
           <button id="joinRoomBtn" class="btn btn-secondary">🔑 เข้าห้อง</button>
         </div>
 
@@ -182,7 +198,9 @@
         <span class="brush-size-preview" title="ขนาดพู่กัน"><span id="brushDot"></span></span>
         <span class="tool-label" id="brushSizeNum">14</span>
         <button id="eyedropperBtn" class="btn btn-small">💉 ดูดสี (F)</button>
+        <button id="camouflageBtn" class="btn btn-small">✨ ดูดสีตรงหน้า + ทาทั้งตัว</button>
         <button id="paintAllBtn" class="btn btn-small">🪣 ทาทั้งตัว</button>
+        <button id="whistleBtn" class="btn btn-small">🎵 ส่งเสียง (V)</button>
         <button id="clearPaintBtn" class="btn btn-small">ล้างสี</button>
         <button id="askQuestionBtn" class="btn btn-small">❓ ตอบคำถามรับพลังงาน ⚡</button>
         <span class="tool-label">🧍 คลิกขวา = เลือกท่าโพส</span>
@@ -194,13 +212,14 @@
         <!-- Brush cursor ring (follows the pointer while painting is allowed) -->
         <div id="brushCursor" style="display: none;"></div>
 
-        <!-- Radial pose wheel (right-click, Hider only) -->
+        <!-- Pose choices (right-click or P, Hider only) -->
         <div id="poseWheel" style="display: none;">
-          <div class="pose-wheel-center">เลือกท่า</div>
+          <div class="pose-wheel-center">เลือกท่าหลบซ่อน</div>
         </div>
 
         <!-- HUD overlays (over the 3D canvas) -->
         <div id="crosshair"></div>
+        <div id="soundCue" role="status" aria-live="polite" style="display: none;"><span id="soundCueArrow">➤</span><span id="soundCueText">🎵 เสียงผู้ซ่อน</span></div>
 
         <!-- Host-only room code + QR, on demand during the match. Collapsed by
              default (just the 🔑 header button) so it never crowds the play
@@ -320,6 +339,8 @@
           <div id="mobLeftButtons">
             <button id="mobQuestion" class="mob-btn mob-quiz">❓<span>คำถาม</span></button>
             <button id="mobPaint" class="mob-btn mob-paint">🖌️<span>ทาสี</span></button>
+            <button id="mobCamouflage" class="mob-btn mob-paint">✨<span>พรางสี</span></button>
+            <button id="mobWhistle" class="mob-btn mob-paint">🎵<span>ส่งเสียง</span></button>
           </div>
         </div>
       </div>
@@ -376,6 +397,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="sounds.js"></script>
+  <script src="config.js"></script>
+  <script src="vendor/supabase.js"></script>
   <script src="websocket-client.js"></script>
   <script src="game.js"></script>
   <script src="questions.js"></script>

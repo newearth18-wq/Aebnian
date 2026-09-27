@@ -13,9 +13,11 @@ const questionSetBtn = document.getElementById('questionSetBtn');
 const questionSetModal = document.getElementById('questionSetModal');
 const questionSetList = document.getElementById('questionSetList');
 const questionSetSearch = document.getElementById('questionSetSearch');
-// Selected set: { id: '' (all), name }
-let selectedQuestionSet = { id: '', name: '📚 ทุกชุด (ทั้งหมด)' };
-let questionSets = []; // cached list from the API
+let selectedQuestionSet = { id: '', name: '' };
+let questionSets = []; // only this teacher's published packs
+const teacherDb = window.supabase.createClient(window.AEBNIAN_CONFIG.supabaseUrl, window.AEBNIAN_CONFIG.supabaseKey);
+let teacherUser = null;
+let teacherRefreshId = 0;
 const manageQuestionsBtn = document.getElementById('manageQuestionsBtn');
 const createRoomBtn = document.getElementById('createRoomBtn');
 const joinRoomBtn = document.getElementById('joinRoomBtn');
@@ -285,7 +287,6 @@ async function init() {
     if (('ontouchstart' in window) || navigator.maxTouchPoints > 0) {
       document.body.classList.add('touch-device');
     }
-    await wsClient.connect();
     setupEventListeners();
     setupWebSocketListeners();
     setupPaintEvents();
@@ -293,6 +294,8 @@ async function init() {
     setupMobileHudToggles();
     setupDurationPicker();
     populateQuestionSets();
+    setupTeacherAuth();
+    await wsClient.connect();
     // A remembered session (after a reload) wins over a QR link
     if (!tryAutoRejoin()) checkUrlForRoom();
   } catch (error) {
@@ -591,6 +594,8 @@ function setupWebSocketListeners() {
       gameEngine.paintRemote(data.playerId, data.data);
     } else if (data.action === 'shoot') {
       gameEngine.showRemoteLaser(data.data);
+    } else if (data.action === 'whistle' && sender?.role === 'hider') {
+      if (currentGame.role === 'seeker') showWhistleCue(data.playerId);
     } else if (data.action === 'ability') {
       gameEngine.applyRemoteAbility(data.playerId, data.data);
     } else if (data.action === 'spectator') {
@@ -654,8 +659,17 @@ function setupWebSocketListeners() {
   });
 }
 
-function handleCreateRoom() {
+async function handleCreateRoom() {
   const username = usernameInput.value.trim();
+
+  if (!teacherUser) {
+    showMessage('ครูต้องเข้าสู่ระบบก่อนสร้างห้อง', 'error');
+    return;
+  }
+  if (!selectedQuestionSet.id || !questionSets.some(set => set.id === selectedQuestionSet.id)) {
+    showMessage('กรุณาเผยแพร่และเลือกชุดข้อสอบของคุณก่อนสร้างห้อง', 'error');
+    return;
+  }
 
   if (!username) {
     alert('Please enter a username');
@@ -664,9 +678,15 @@ function handleCreateRoom() {
 
   currentGame.username = username;
   currentGame.duration = readDurationSeconds();
-  currentGame.questionSetId = selectedQuestionSet.id || null;
+  currentGame.questionSetId = selectedQuestionSet.id;
   const roomId = generateRoomCode();
-  wsClient.createRoom(roomId, username);
+  const { data: { session } } = await teacherDb.auth.getSession();
+  if (!session?.access_token || session.user?.id !== teacherUser.id) {
+    showMessage('เซสชันครูหมดอายุ กรุณาเข้าสู่ระบบใหม่', 'error');
+    await updateTeacherSession();
+    return;
+  }
+  wsClient.createRoom(roomId, username, session.access_token, selectedQuestionSet.id);
 }
 
 function handleJoinRoom() {
@@ -687,7 +707,7 @@ function handleJoinRoom() {
 
   currentGame.username = username;
   currentGame.duration = readDurationSeconds();
-  currentGame.questionSetId = selectedQuestionSet.id || null;
+  currentGame.questionSetId = null; // room settings come from the teacher
   currentGame.role = 'seeker'; // requested role; server may reassign if seekers are full
   wsClient.joinRoom(roomId, username, 'seeker');
 
@@ -1443,7 +1463,9 @@ function setupMobileControls() {
   if (paintBtn) {
     const canPaint = !gameEngine || gameEngine.lobbyMode || currentGame.role === 'hider';
     paintBtn.style.display = canPaint ? 'flex' : 'none';
+    document.getElementById('mobCamouflage').style.display = canPaint ? 'flex' : 'none';
   }
+  document.getElementById('mobWhistle').style.display = currentGame.role === 'hider' && !gameEngine?.lobbyMode ? 'flex' : 'none';
 
   if (mobileWired) return; // wire the listeners only once
   mobileWired = true;
@@ -1623,39 +1645,89 @@ function setupDurationPicker() {
 }
 
 // Load question sets from the API and wire up the picker window
-async function populateQuestionSets() {
+function setupTeacherAuth() {
+  const form = document.getElementById('teacherLoginForm');
+  const notice = document.getElementById('teacherAuthMessage');
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    notice.textContent = 'กำลังเข้าสู่ระบบ…';
+    const { error } = await teacherDb.auth.signInWithPassword({
+      email: document.getElementById('teacherEmail').value.trim(),
+      password: document.getElementById('teacherPassword').value
+    });
+    if (error) { notice.textContent = error.message; return; }
+    document.getElementById('teacherPassword').value = '';
+    notice.textContent = '';
+    await updateTeacherSession();
+  });
+  document.getElementById('teacherLogoutBtn').addEventListener('click', async () => {
+    await teacherDb.auth.signOut();
+    await updateTeacherSession();
+  });
+  teacherDb.auth.onAuthStateChange(event => {
+    if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT')
+      setTimeout(updateTeacherSession, 0);
+  });
+  updateTeacherSession();
+}
+
+async function updateTeacherSession() {
+  const refreshId = ++teacherRefreshId;
+  const { data: { user }, error } = await teacherDb.auth.getUser();
+  if (refreshId !== teacherRefreshId) return;
+  const previousUserId = teacherUser?.id;
+  teacherUser = error ? null : user;
+  document.getElementById('teacherLoginPanel').hidden = !!teacherUser;
+  document.getElementById('teacherAccountPanel').hidden = !teacherUser;
+  document.body.classList.toggle('teacher-logged-in', !!teacherUser);
+  document.getElementById('teacherIdentity').textContent = teacherUser ? `👩‍🏫 ${teacherUser.email || 'บัญชีครู'}` : '';
+  createRoomBtn.disabled = true;
+  if (previousUserId !== teacherUser?.id) {
+    questionSets = [];
+    selectedQuestionSet = { id: '', name: '' };
+    questionSetList.replaceChildren();
+    closeQuestionSetModal();
+  }
+  questionSetBtn.textContent = teacherUser ? 'กำลังโหลดชุดข้อสอบของฉัน…' : 'เข้าสู่ระบบเพื่อเลือกชุดข้อสอบ';
+  if (teacherUser) await refreshQuestionSets(refreshId);
+}
+
+function populateQuestionSets() {
   questionSetBtn.addEventListener('click', openQuestionSetModal);
   document.getElementById('closeQuestionSetModal').addEventListener('click', closeQuestionSetModal);
   questionSetModal.addEventListener('click', (e) => { if (e.target === questionSetModal) closeQuestionSetModal(); });
   questionSetSearch.addEventListener('input', renderQuestionSetList);
 }
 
-async function refreshQuestionSets() {
+async function refreshQuestionSets(refreshId = teacherRefreshId) {
+  if (!teacherUser) return;
   try {
-    const [setsRes, allQuestions] = await Promise.all([
-      fetch('/api/questions/sets', { cache: 'no-store' }).then(r => {
-        if (!r.ok) throw new Error(`Question sets returned ${r.status}`);
-        return r.json();
-      }),
-      questionManager.loadQuestions().catch(() => [])
-    ]);
-    if (!Array.isArray(setsRes)) throw new Error('Question sets response is invalid');
-    // Count questions per set so the picker shows how big each set is
-    const counts = {};
-    (allQuestions || []).forEach(q => {
-      const k = String(q.question_set_id);
-      counts[k] = (counts[k] || 0) + 1;
-    });
-    questionSets = (setsRes || []).map(s => ({ ...s, count: counts[String(s.id)] || 0 }));
+    const ownerId = teacherUser.id;
+    const { data, error } = await teacherDb.from('quiz_packs')
+      .select('id,title,description,quiz_questions(id)')
+      .eq('owner_id', ownerId).eq('is_published', true)
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    if (refreshId !== teacherRefreshId || ownerId !== teacherUser?.id) return;
+    questionSets = (data || []).map(pack => ({
+      id: pack.id, name: pack.title, description: pack.description || '',
+      count: pack.quiz_questions?.length || 0
+    }));
+    const selected = questionSets.find(set => set.id === selectedQuestionSet.id) || questionSets[0];
+    selectedQuestionSet = selected ? { id: selected.id, name: selected.name } : { id: '', name: '' };
+    questionSetBtn.textContent = selected ? selected.name : 'ยังไม่มีชุดข้อสอบที่เผยแพร่';
+    createRoomBtn.disabled = !selected;
   } catch (error) {
     console.error('Failed to load question sets:', error);
-    questionSetList.innerHTML = '<div class="picker-empty">โหลดชุดข้อสอบไม่สำเร็จ กรุณาปิดแล้วเปิดใหม่</div>';
+    questionSetBtn.textContent = 'โหลดชุดข้อสอบไม่สำเร็จ — แตะเพื่อลองใหม่';
+    questionSetList.innerHTML = '<div class="picker-empty">โหลดชุดข้อสอบไม่สำเร็จ กรุณาลองใหม่</div>';
     return;
   }
   renderQuestionSetList();
 }
 
 function openQuestionSetModal() {
+  if (!teacherUser) { showMessage('ครูต้องเข้าสู่ระบบก่อนเลือกชุดข้อสอบ', 'error'); return; }
   questionSetSearch.value = '';
   questionSetModal.style.display = 'flex';
   questionSetList.innerHTML = '<div class="picker-empty">กำลังโหลดชุดข้อสอบ…</div>';
@@ -1666,16 +1738,14 @@ function closeQuestionSetModal() { questionSetModal.style.display = 'none'; }
 // Render the searchable list of sets as clickable cards
 function renderQuestionSetList() {
   const q = (questionSetSearch.value || '').trim().toLowerCase();
-  const totalQuestions = questionSets.reduce((a, s) => a + s.count, 0);
-  const items = [{ id: '', name: '📚 ทุกชุด (ทั้งหมด)', description: 'รวมข้อสอบจากทุกชุด', count: totalQuestions, subject: '' }]
-    .concat(questionSets);
+  const items = questionSets;
   const filtered = q
     ? items.filter(s => (s.name + ' ' + (s.subject || '') + ' ' + (s.description || '')).toLowerCase().includes(q))
     : items;
 
   questionSetList.innerHTML = '';
   if (!filtered.length) {
-    questionSetList.innerHTML = '<div class="picker-empty">ไม่พบชุดข้อสอบที่ค้นหา</div>';
+    questionSetList.innerHTML = `<div class="picker-empty">${questionSets.length ? 'ไม่พบชุดข้อสอบที่ค้นหา' : 'ยังไม่มีชุดข้อสอบที่เผยแพร่ในบัญชีนี้ — กด “จัดการชุดข้อสอบ” เพื่อเพิ่มหรือเผยแพร่'}</div>`;
     return;
   }
   filtered.forEach(s => {
@@ -1709,10 +1779,8 @@ function escapeHtml(str) {
 // Filters to the chosen question set if one was selected.
 async function loadGameQuestions() {
   try {
-    const all = await questionManager.loadQuestions();
     loadedQuestions = currentGame.questionSetId
-      ? all.filter(q => String(q.question_set_id) === String(currentGame.questionSetId))
-      : all;
+      ? await questionManager.loadQuestions(currentGame.questionSetId) : [];
   } catch (error) {
     console.error('Error loading questions:', error);
     loadedQuestions = [];
@@ -2314,9 +2382,67 @@ function setupPaintEvents() {
     }
   });
 
+  document.getElementById('camouflageBtn').addEventListener('click', camouflageFromView);
+  document.getElementById('whistleBtn').addEventListener('click', sendWhistle);
+  document.getElementById('mobCamouflage').addEventListener('pointerup', event => { event.preventDefault(); camouflageFromView(); });
+  document.getElementById('mobWhistle').addEventListener('pointerup', event => { event.preventDefault(); sendWhistle(); });
+  window.addEventListener('keydown', event => {
+    if (event.key.toLowerCase() !== 'v' || event.repeat ||
+        /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return;
+    sendWhistle();
+  });
+
   askQuestionBtn.addEventListener('click', askQuestion);
 
   setupPoseWheel();
+}
+
+function camouflageFromView() {
+  if (!gameEngine || !gameEngine._canPaint?.()) return;
+  const canvas = document.getElementById('gameCanvas');
+  const rect = canvas.getBoundingClientRect();
+  const hex = gameEngine._suckColor(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  if (!hex) {
+    showMessage('เล็งไปที่พื้น ผนัง หรือสิ่งของ แล้วกดพรางสีอีกครั้ง', 'error');
+    return;
+  }
+  paintState.color = hex;
+  gameEngine.paintAll(hex);
+  showMessage('✨ พรางสีทั้งตัวตามฉากแล้ว', 'success');
+}
+
+let lastWhistleAt = 0;
+let soundCueTimer = null;
+function showWhistleCue(playerId) {
+  const rp = gameEngine?.remotePlayers?.get(playerId);
+  const me = gameEngine?.character?.position;
+  let distance = null;
+  if (rp?.target && me) distance = Math.hypot(rp.target.x - me.x, rp.target.z - me.z);
+  if (typeof soundFX !== 'undefined') soundFX.whistle(distance == null ? .65 : Math.max(.22, Math.min(.9, 1 - distance / 100)));
+  const cue = document.getElementById('soundCue');
+  const arrow = document.getElementById('soundCueArrow');
+  document.getElementById('soundCueText').textContent = distance == null
+    ? '🎵 ได้ยินเสียงผู้ซ่อน' : `🎵 เสียงผู้ซ่อน ${Math.round(distance)} ม.`;
+  if (rp?.target && me && gameEngine.camera) {
+    const forward = new THREE.Vector3();
+    gameEngine.camera.getWorldDirection(forward);
+    const dx = rp.target.x - me.x, dz = rp.target.z - me.z;
+    const angle = Math.atan2(forward.z * dx - forward.x * dz, forward.x * dx + forward.z * dz);
+    arrow.style.transform = `rotate(${angle}rad)`;
+    arrow.style.display = '';
+  } else arrow.style.display = 'none';
+  cue.style.display = 'flex';
+  clearTimeout(soundCueTimer);
+  soundCueTimer = setTimeout(() => { cue.style.display = 'none'; }, 3500);
+}
+function sendWhistle() {
+  if (!gameEngine || gameEngine.gameState !== 'playing' || gameEngine.lobbyMode || currentGame.role !== 'hider') return;
+  const remaining = 8000 - (Date.now() - lastWhistleAt);
+  if (remaining > 0) { showMessage(`ส่งเสียงได้อีกครั้งใน ${Math.ceil(remaining / 1000)} วินาที`, 'error'); return; }
+  lastWhistleAt = Date.now();
+  if (typeof soundFX !== 'undefined') soundFX.whistle();
+  wsClient.broadcastAction(currentGame.roomId, currentGame.playerId, 'whistle', {});
+  showMessage('🎵 ส่งเสียงแล้ว ผู้หาได้ยิน!', 'success');
 }
 
 // Highlight the eyedropper button + crosshair cursor while active
@@ -2387,7 +2513,7 @@ function hexToRgba(hex, a) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
-// ===== Radial pose wheel (right-click to open, Hider only) =====
+// ===== Pose choices (right-click, P, or the touch action button) =====
 const POSE_WHEEL_ITEMS = [
   { pose: 'stand', label: '🧍 ยืน' },
   { pose: 'spread', label: '🙆 กางแขน' },
@@ -2437,15 +2563,17 @@ function setupPoseWheel() {
   backdrop.addEventListener('click', closePoseWheel);
   backdrop.addEventListener('touchstart', (e) => { e.preventDefault(); closePoseWheel(); }, { passive: false });
 
-  // Build the wheel buttons in a circle
-  const R = 130;
+  const grid = document.createElement('div');
+  grid.className = 'pose-choice-grid';
+  poseWheel.appendChild(grid);
+  const extra = document.createElement('div');
+  extra.className = 'pose-choice-grid';
+  extra.hidden = true;
+  const primaryPoses = new Set(['stand', 'crouch', 'sit', 'lie', 'flat', 'wave']);
   POSE_WHEEL_ITEMS.forEach((item, i) => {
-    const ang = (i / POSE_WHEEL_ITEMS.length) * Math.PI * 2 - Math.PI / 2;
     const btn = document.createElement('button');
     btn.className = 'pose-wheel-btn';
     btn.textContent = item.label;
-    btn.style.left = `calc(50% + ${Math.round(Math.cos(ang) * R)}px)`;
-    btn.style.top = `calc(50% + ${Math.round(Math.sin(ang) * R)}px)`;
     const pick = (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -2456,8 +2584,18 @@ function setupPoseWheel() {
     // touchend for phones (fires immediately, no 300ms click delay), click for desktop
     btn.addEventListener('touchend', pick, { passive: false });
     btn.addEventListener('click', pick);
-    poseWheel.appendChild(btn);
+    (primaryPoses.has(item.pose) ? grid : extra).appendChild(btn);
   });
+  poseWheel.appendChild(extra);
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'pose-more-btn';
+  more.textContent = 'ท่าอื่น ๆ ▾';
+  more.addEventListener('click', () => {
+    extra.hidden = !extra.hidden;
+    more.textContent = extra.hidden ? 'ท่าอื่น ๆ ▾' : 'ซ่อนท่าอื่น ๆ ▴';
+  });
+  poseWheel.appendChild(more);
 
   // Right-click toggles the wheel. Bind to the game-container (a stable
   // parent) instead of the canvas — the canvas element is swapped out every

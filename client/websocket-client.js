@@ -110,11 +110,13 @@ class WebSocketClient {
   }
 
   // Game-specific methods
-  createRoom(roomId, username) {
+  createRoom(roomId, username, teacherToken, questionSetId) {
     this.send({
       type: 'create_room',
       roomId: roomId,
-      username: username
+      username: username,
+      teacherToken,
+      questionSetId
     });
   }
 
