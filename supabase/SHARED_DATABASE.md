@@ -34,8 +34,9 @@ owner configured Brevo custom SMTP in the shared project's Auth dashboard:
 `smtp-relay.brevo.com`, port `587`, sender name `Classroom Games`. A fresh page
 load confirmed that the settings and an encrypted password were saved. The
 SMTP key stays in Supabase and must never be copied into this repository.
-An actual new-account signup and email delivery test is still pending; saving
-configuration alone does not prove successful delivery. The first signup test
+SMTP delivery was verified with an owner-authorized password recovery email
+on 2026-10-16 at 22:30 Asia/Bangkok: Auth recorded `recovery_sent_at`, and Brevo
+recorded both Sent and Delivered for the message. The first signup test
 returned `user_repeated_signup` for an already confirmed shared account, so
 no verification email was dispatched. That user should sign in with their
 existing credentials; repeated signup does not reset their password.
@@ -52,6 +53,9 @@ screens. Its production redirect URL is allowlisted in Supabase Auth. Recovery
 uses an isolated in-memory Auth client, validates the recovery session before
 showing the password form, and never persists its tokens into the game session.
 The owner confirmed successful sign-in with their existing shared account.
+The live request page and expired-link fallback were checked in the browser;
+14 automated auth/recovery checks passed. The recovery email test did not
+change the owner's password. Saving a real new password remains a user action.
 
 ## Deferred migration
 
