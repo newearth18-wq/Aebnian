@@ -841,6 +841,22 @@ body.touch-device #crosshair.locked { width: 40px; height: 40px; }
 }
 #soundCueArrow { display: inline-block; font-size: 24px; color: #ffe370; }
 
+#whistleCountdown {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 32;
+  padding: 6px 12px;
+  border-radius: 99px;
+  background: rgba(22, 31, 46, .78);
+  color: #fff3a1;
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 .pose-btn:hover {
   background: #465c74;
 }

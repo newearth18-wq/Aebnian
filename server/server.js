@@ -92,6 +92,7 @@ wss.on('connection', (ws) => {
         if (room.players.size === 0 || !anyoneLeft) {
           room.players.forEach(p => { if (p.dropTimer) clearTimeout(p.dropTimer); });
           if (room._batchTimer) clearInterval(room._batchTimer);
+          if (room._whistleTimer) clearTimeout(room._whistleTimer);
           gameRooms.delete(roomId);
           console.log(`Room ${roomId} closed (empty)`);
         }

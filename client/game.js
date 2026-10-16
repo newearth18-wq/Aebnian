@@ -6160,6 +6160,17 @@ class GameEngine {
     this.currentPaintColor = color;
   }
 
+  setPaintFinish(roughness = 0.9, metalness = 0) {
+    const r = Number.isFinite(roughness) ? Math.max(0.12, Math.min(1, roughness)) : 0.9;
+    const m = Number.isFinite(metalness) ? Math.max(0, Math.min(0.85, metalness)) : 0;
+    this.characterParts?.forEach(mesh => {
+      if (!mesh.userData.paint) return;
+      mesh.material.roughness = r;
+      mesh.material.metalness = m;
+    });
+    if (this.onPaintStroke) this.onPaintStroke({ finish: true, r, m });
+  }
+
   setBrushSize(size) {
     this.brushSize = size;
   }
@@ -6184,6 +6195,9 @@ class GameEngine {
 
     const hex = this._sampleHitColor(hits[0]);
     if (hex) {
+      const surface = Array.isArray(hits[0].object.material)
+        ? hits[0].object.material[0] : hits[0].object.material;
+      this.setPaintFinish(surface?.roughness, surface?.metalness);
       this.currentPaintColor = hex;
       this.eyedropperMode = false;
       if (typeof soundFX !== 'undefined') soundFX.suck();
@@ -6497,6 +6511,8 @@ class GameEngine {
         try {
           dp.ctx.drawImage(sp.canvas, 0, 0, dp.canvas.width, dp.canvas.height);
           dp.texture.needsUpdate = true;
+          dst.material.roughness = src.material.roughness;
+          dst.material.metalness = src.material.metalness;
         } catch (e) { /* leave it plain */ }
       });
     }
@@ -6510,6 +6526,16 @@ class GameEngine {
   paintRemote(id, stroke) {
     const rp = this.remotePlayers.get(id);
     if (!rp || !stroke) return;
+    if (stroke.finish) {
+      const r = Number(stroke.r), m = Number(stroke.m);
+      if (!Number.isFinite(r) || !Number.isFinite(m)) return;
+      rp.rig.parts.forEach(mesh => {
+        if (!mesh.userData.paint) return;
+        mesh.material.roughness = Math.max(0.12, Math.min(1, r));
+        mesh.material.metalness = Math.max(0, Math.min(0.85, m));
+      });
+      return;
+    }
     const redraw = (m, fn) => {
       const p = m.userData.paint;
       if (!p) return;

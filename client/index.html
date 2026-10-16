@@ -200,10 +200,11 @@
         <button id="eyedropperBtn" class="btn btn-small">💉 ดูดสี (F)</button>
         <button id="camouflageBtn" class="btn btn-small">✨ ดูดสีตรงหน้า + ทาทั้งตัว</button>
         <button id="paintAllBtn" class="btn btn-small">🪣 ทาทั้งตัว</button>
+        <button id="finishBtn" class="btn btn-small" title="สลับผิวด้าน ผิวมัน และโลหะ">🪞 ผิว: ด้าน</button>
         <button id="whistleBtn" class="btn btn-small">🎵 ส่งเสียง (V)</button>
         <button id="clearPaintBtn" class="btn btn-small">ล้างสี</button>
         <button id="askQuestionBtn" class="btn btn-small">❓ ตอบคำถามรับพลังงาน ⚡</button>
-        <span class="tool-label">🧍 คลิกขวา = เลือกท่าโพส</span>
+        <span class="tool-label">🧍 คลิกขวาหรือ R = เลือกท่า</span>
       </div>
 
       <div class="game-container">
@@ -212,7 +213,7 @@
         <!-- Brush cursor ring (follows the pointer while painting is allowed) -->
         <div id="brushCursor" style="display: none;"></div>
 
-        <!-- Pose choices (right-click or P, Hider only) -->
+        <!-- Pose choices (right-click, R or P, Hider only) -->
         <div id="poseWheel" style="display: none;">
           <div class="pose-wheel-center">เลือกท่าหลบซ่อน</div>
         </div>
@@ -220,6 +221,7 @@
         <!-- HUD overlays (over the 3D canvas) -->
         <div id="crosshair"></div>
         <div id="soundCue" role="status" aria-live="polite" style="display: none;"><span id="soundCueArrow">➤</span><span id="soundCueText">🎵 เสียงผู้ซ่อน</span></div>
+        <div id="whistleCountdown" style="display: none;" aria-live="off"></div>
 
         <!-- Host-only room code + QR, on demand during the match. Collapsed by
              default (just the 🔑 header button) so it never crowds the play
@@ -301,7 +303,8 @@
           <div><span class="hud-key">ลูกกลิ้ง</span> ซูม</div>
           <div><span class="hud-key">ลากบนตัว</span> วาดลาย</div>
           <div><span class="hud-key">F</span> ดูดสีจากฉาก</div>
-          <div><span class="hud-key">คลิกขวา</span> เลือกท่าโพส</div>
+          <div><span class="hud-key">R / คลิกขวา</span> เลือกท่าโพส</div>
+          <div><span class="hud-key">🎵</span> ผู้ซ่อนส่งเสียงทุก 1 นาทีในช่วงหา</div>
         </div>
 
         <!-- Red edge glow that swells as a seeker closes in (hiders only) -->

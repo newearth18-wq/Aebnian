@@ -225,21 +225,58 @@ function handleGameStateUpdate(data, roomId, ws, gameRooms, playerConnections) {
   if (room.players.get(room.hostId)?.ws !== ws) return;
 
   room.gameState = data.gameState;
-  room.startTime = data.startTime;
+  room.startTime = data.gameState === 'playing' ? Date.now() : data.startTime;
   // Store room settings (duration, questionSetId, mapId) from the creator
   if (data.settings) {
     room.settings = { ...data.settings, questionSetId: room.questionSetId };
     if (data.settings.duration) room.duration = data.settings.duration;
   }
+  scheduleWhistle(room);
 
   // Broadcast to all players in room (settings included so joiners sync)
   const msg = JSON.stringify({
     type: 'game_state_changed',
     gameState: data.gameState,
-    startTime: data.startTime,
+    startTime: room.startTime,
     settings: room.settings || null
   });
   room.players.forEach(player => { if (player.ws.readyState === 1) player.ws.send(msg); });
+}
+
+// The hunt gives every seeker the same timed audio clue, including students
+// who join halfway through a round. Keep this clock on the server so hiding in
+// a background tab cannot suppress a required whistle.
+const HIDE_PHASE_MS = 120000;
+const WHISTLE_INTERVAL_MS = 60000;
+
+function clearWhistleTimer(room) {
+  if (room._whistleTimer) clearTimeout(room._whistleTimer);
+  room._whistleTimer = null;
+}
+
+function scheduleWhistle(room) {
+  clearWhistleTimer(room);
+  if (room.gameState !== 'playing' || !Number.isFinite(Number(room.startTime))) return;
+  const huntStart = Number(room.startTime) + HIDE_PHASE_MS;
+  const huntEnd = huntStart + (Number(room.duration) || 300) * 1000;
+  const now = Date.now();
+  const nextMinute = Math.max(1, Math.floor((now - huntStart) / WHISTLE_INTERVAL_MS) + 1);
+  const nextAt = huntStart + nextMinute * WHISTLE_INTERVAL_MS;
+  if (nextAt >= huntEnd) return;
+  room._whistleTimer = setTimeout(() => {
+    room._whistleTimer = null;
+    if (room.gameState !== 'playing') return;
+    const playerIds = Array.from(room.players.values())
+      .filter(player => player.connected && player.role === 'hider')
+      .map(player => player.id);
+    if (playerIds.length) {
+      const msg = JSON.stringify({ type: 'forced_whistle', playerIds });
+      room.players.forEach(player => {
+        if (player.connected && player.ws.readyState === 1) player.ws.send(msg);
+      });
+    }
+    scheduleWhistle(room);
+  }, Math.max(0, nextAt - now));
 }
 
 function handleHiderPaintingUpdate(data, roomId, gameRooms, playerConnections) {
@@ -334,6 +371,14 @@ function handleGameAction(data, roomId, ws, gameRooms, playerConnections) {
     sender.lastWhistleAt = Date.now();
   }
 
+  if (data.action === 'found') {
+    const sender = room.players.get(data.playerId);
+    const target = room.players.get(data.actionData?.targetId);
+    if (!sender || sender.ws !== ws || sender.role !== 'seeker' ||
+        !target || target.role !== 'hider' || room.gameState !== 'playing') return;
+    target.role = 'seeker';
+  }
+
   // High-frequency actions go into the per-room batch instead of instant relay
   if (data.action === 'move') {
     ensureBatchTimer(room);
@@ -388,6 +433,7 @@ function handleNextRound(data, roomId, gameRooms) {
 
   if (room.round > totalRounds || ids.length === 0) {
     room.gameState = 'finished';
+    clearWhistleTimer(room);
     sendAll({ type: 'match_over', players: roster() });
     return;
   }
@@ -401,6 +447,7 @@ function handleNextRound(data, roomId, gameRooms) {
 
   room.gameState = 'playing';
   room.startTime = Date.now();
+  scheduleWhistle(room);
   sendAll({
     type: 'round_start',
     round: room.round,

@@ -617,6 +617,25 @@ function setupWebSocketListeners() {
     }
   });
 
+  wsClient.on('forced_whistle', (data) => {
+    if (!gameEngine || gameEngine.gameState !== 'playing' ||
+        gameEngine.getPhase().phase !== 'hunt') return;
+    if (currentGame.role !== 'seeker') {
+      if (typeof soundFX !== 'undefined') soundFX.whistle();
+      showMessage('🎵 ได้เวลาส่งเสียง ผู้หาอาจได้ยิน!', 'error');
+      return;
+    }
+    const me = gameEngine.character?.position;
+    const nearby = (data.playerIds || [])
+      .map(id => ({ id, position: gameEngine.remotePlayers.get(id)?.target }))
+      .sort((a, b) => {
+        const distance = item => item.position && me
+          ? Math.hypot(item.position.x - me.x, item.position.z - me.z) : Infinity;
+        return distance(a) - distance(b);
+      });
+    if (nearby.length) showWhistleCue(nearby[0].id);
+  });
+
   wsClient.on('error', (error) => {
     console.error('WebSocket error:', error);
     // A rejected auto-rejoin must clear the flag, or the retry never fires again
@@ -1194,6 +1213,8 @@ function wireLocalGameEngine() {
     if (colorPicker) colorPicker.value = hex;
     renderColorPalette();
     updateEyedropperUI(false);
+    document.getElementById('finishBtn').textContent = '🪞 ผิว: ตามฉาก';
+    finishPresetIndex = -1;
     showMessage(`ดูดสีสำเร็จ! ${hex} — ลากทาตัวหรือกด "ทาทั้งตัว" ได้เลย`, 'success');
   };
   gameEngine.onEyedropperToggle = (on) => updateEyedropperUI(on);
@@ -1352,6 +1373,8 @@ function wireLocalGameEngine() {
     const m = Math.floor(seconds / 60);
     const s = (seconds % 60).toString().padStart(2, '0');
     timerDisplay.textContent = `${m}:${s}`;
+    const whistleCountdown = document.getElementById('whistleCountdown');
+    whistleCountdown.style.display = 'none';
 
     if (phase === 'lobby') {
       // Pre-match lobby: no countdown, just chill
@@ -1367,6 +1390,12 @@ function wireLocalGameEngine() {
         : `⏳ รอผู้ซ่อน... เริ่มค้นใน ${m}:${s}`;
     } else {
       timerDisplay.style.color = '';
+      const huntElapsed = (Date.now() - gameEngine.startTime - gameEngine.hidePhase * 1000) / 1000;
+      const untilWhistle = Math.max(1, Math.ceil(60 - (huntElapsed % 60)));
+      if (seconds > untilWhistle && gameEngine.gameState === 'playing') {
+        whistleCountdown.textContent = `${currentGame.role === 'hider' ? '🎵 ต้องส่งเสียง' : '🎵 เสียงผู้ซ่อน'}ใน ${untilWhistle} วิ`;
+        whistleCountdown.style.display = 'block';
+      }
       if (lastPhase === 'hide') {
         // Hunt just started
         showMessage(currentGame.role === 'hider' ? '🚨 ผู้ตามเริ่มค้นแล้ว!' : '🔫 เริ่มล่าได้!', 'error');
@@ -2383,6 +2412,14 @@ function setupPaintEvents() {
   });
 
   document.getElementById('camouflageBtn').addEventListener('click', camouflageFromView);
+  document.getElementById('finishBtn').addEventListener('click', () => {
+    if (!gameEngine || !gameEngine._canPaint?.()) return;
+    finishPresetIndex = (finishPresetIndex + 1) % PAINT_FINISH_PRESETS.length;
+    const finish = PAINT_FINISH_PRESETS[finishPresetIndex];
+    gameEngine.setPaintFinish(finish.roughness, finish.metalness);
+    document.getElementById('finishBtn').textContent = `🪞 ผิว: ${finish.label}`;
+    showMessage(`ปรับเป็นผิว${finish.label}แล้ว`, 'success');
+  });
   document.getElementById('whistleBtn').addEventListener('click', sendWhistle);
   document.getElementById('mobCamouflage').addEventListener('pointerup', event => { event.preventDefault(); camouflageFromView(); });
   document.getElementById('mobWhistle').addEventListener('pointerup', event => { event.preventDefault(); sendWhistle(); });
@@ -2396,6 +2433,13 @@ function setupPaintEvents() {
 
   setupPoseWheel();
 }
+
+const PAINT_FINISH_PRESETS = [
+  { label: 'ด้าน', roughness: 0.9, metalness: 0 },
+  { label: 'มัน', roughness: 0.24, metalness: 0 },
+  { label: 'โลหะ', roughness: 0.28, metalness: 0.75 }
+];
+let finishPresetIndex = 0;
 
 function camouflageFromView() {
   if (!gameEngine || !gameEngine._canPaint?.()) return;
@@ -2611,8 +2655,10 @@ function setupPoseWheel() {
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closePoseWheel();
-    // P key is a quick keyboard shortcut to open the pose wheel
-    if ((e.key === 'p' || e.key === 'P') && gameEngine && gameEngine.gameState === 'playing'
+    // R matches the reference game's pose key; keep P for existing players.
+    if ((e.key.toLowerCase() === 'r' || e.key.toLowerCase() === 'p') && !e.repeat
+        && !e.target?.closest?.('input, textarea, select, [contenteditable="true"]')
+        && gameEngine && gameEngine.gameState === 'playing'
         && (gameEngine.lobbyMode || gameEngine.isHider)) {
       togglePoseWheel();
     }
