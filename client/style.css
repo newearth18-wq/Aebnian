@@ -2411,3 +2411,4 @@ body.touch-device #blendMeter { top: 142px; right: 12px; left: auto; }
   border-radius: 4px;
   font-weight: 700;
 }
+.teacher-auth a + a { margin-left: 14px; }

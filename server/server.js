@@ -30,6 +30,11 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/admin.html'));
 });
 
+app.get('/reset-password', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile(path.join(__dirname, '../client/reset-password.html'));
+});
+
 // Create HTTP server
 const server = http.createServer(app);
 

@@ -47,6 +47,12 @@ Do not disable confirmation for the shared project without the owner's
 decision: that changes account verification for every app using this Auth
 service. The owner explicitly chose SMTP with email verification.
 
+Password recovery is available at `/reset-password` from both teacher login
+screens. Its production redirect URL is allowlisted in Supabase Auth. Recovery
+uses an isolated in-memory Auth client, validates the recovery session before
+showing the password form, and never persists its tokens into the game session.
+The owner confirmed successful sign-in with their existing shared account.
+
 ## Deferred migration
 
 The former Aebnian project `zcrcycwgjotvkovolznj` remains paused. Its old accounts

@@ -13,6 +13,8 @@
 
 เปิด `/admin` เพื่อสมัครหรือเข้าสู่ระบบด้วยอีเมล แล้วสร้างชุดข้อสอบ แก้ไขคำถามแบบ 4 ตัวเลือก ระบุเฉลย และกดเผยแพร่ นักเรียนจะเห็นเฉพาะชุดที่เผยแพร่แล้ว ครูแก้ไขได้เฉพาะชุดของบัญชีตนเองผ่าน Supabase Auth, Row Level Security และฟังก์ชันบันทึกแบบธุรกรรมเดียว
 
+หากลืมรหัสผ่าน กด “ลืมรหัสผ่าน?” ที่หน้าครูหรือหน้าล็อกอินในเกม หรือเปิด `/reset-password` เพื่อขอลิงก์ทางอีเมล ตั้งรหัสผ่านใหม่อย่างน้อย 8 ตัวอักษรและยืนยันอีกครั้ง บัญชีที่ใช้ร่วมกับ Coastal Quest จะใช้รหัสใหม่เดียวกัน ต้องอนุญาต URL `https://aebnian-classroom-game.onrender.com/reset-password` ใน Supabase Auth → URL Configuration → Redirect URLs ด้วย
+
 เกมใช้ฐานร่วม Frostbound Classroom โดยแยกตาราง Aebnian ด้วยชื่อ `aeb_` และใช้โปรเจกต์ Supabase ที่ระบุใน `supabase-public.json` (URL และ publishable key เป็นข้อมูลสาธารณะ) ห้ามใส่ service role key ในไฟล์นี้หรือฝั่ง client อ่านโครงสร้างฐานร่วมและสถานะการย้ายข้อมูลเก่าใน [supabase/SHARED_DATABASE.md](supabase/SHARED_DATABASE.md)
 
 ## รันในเครื่อง
