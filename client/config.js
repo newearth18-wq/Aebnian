@@ -1,1 +1,1 @@
-window.AEBNIAN_CONFIG = Object.freeze({ supabaseUrl: 'https://zcrcycwgjotvkovolznj.supabase.co', supabaseKey: 'sb_publishable_9mXeA3EIF2pEKPm4lN_oWw_S5iHGnzC' });
+window.AEBNIAN_CONFIG = Object.freeze({ supabaseUrl: 'https://zjvzsfbtwxeazwnkxdbw.supabase.co', supabaseKey: 'sb_publishable_gZdUe0lNTWAVOUbCk8dJSQ_2Uw0lOQF' });

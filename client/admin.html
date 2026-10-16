@@ -16,6 +16,7 @@
     <section id="authPanel" class="card auth">
       <h2>เข้าสู่ระบบครู</h2>
       <p>ข้อสอบจะเก็บในฐานข้อมูลถาวร และครูแก้ไขได้เฉพาะชุดของบัญชีตนเอง</p>
+      <p>หากมีบัญชีครู Coastal Quest ให้ใช้อีเมลและรหัสผ่านเดิมได้ บัญชีและข้อสอบ Aebnian รุ่นก่อนยังรอย้ายมา หากยังไม่มีบัญชีในระบบใหม่นี้ให้สมัครด้านล่าง</p>
       <form id="loginForm">
         <label>อีเมล<input id="email" type="email" autocomplete="email" required></label>
         <label>รหัสผ่าน<input id="password" type="password" autocomplete="current-password" minlength="6" required></label>
@@ -41,6 +42,7 @@
   </main>
   <script src="config.js"></script>
   <script src="vendor/supabase.js"></script>
+  <script src="auth-errors.js"></script>
   <script type="module" src="admin.js"></script>
 </body>
 </html>

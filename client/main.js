@@ -1699,15 +1699,24 @@ function setupTeacherAuth() {
   const notice = document.getElementById('teacherAuthMessage');
   form.addEventListener('submit', async event => {
     event.preventDefault();
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit.disabled) return;
+    submit.disabled = true;
     notice.textContent = 'กำลังเข้าสู่ระบบ…';
-    const { error } = await teacherDb.auth.signInWithPassword({
-      email: document.getElementById('teacherEmail').value.trim(),
-      password: document.getElementById('teacherPassword').value
-    });
-    if (error) { notice.textContent = error.message; return; }
-    document.getElementById('teacherPassword').value = '';
-    notice.textContent = '';
-    await updateTeacherSession();
+    try {
+      const { error } = await teacherDb.auth.signInWithPassword({
+        email: document.getElementById('teacherEmail').value.trim(),
+        password: document.getElementById('teacherPassword').value
+      });
+      if (error) throw error;
+      document.getElementById('teacherPassword').value = '';
+      notice.textContent = '';
+      await updateTeacherSession();
+    } catch (error) {
+      notice.textContent = window.aebnianAuthError(error);
+    } finally {
+      submit.disabled = false;
+    }
   });
   document.getElementById('teacherLogoutBtn').addEventListener('click', async () => {
     await teacherDb.auth.signOut();
@@ -1752,15 +1761,15 @@ async function refreshQuestionSets(refreshId = teacherRefreshId) {
   if (!teacherUser) return;
   try {
     const ownerId = teacherUser.id;
-    const { data, error } = await teacherDb.from('quiz_packs')
-      .select('id,title,description,quiz_questions(id)')
+    const { data, error } = await teacherDb.from('aeb_quiz_packs')
+      .select('id,title,description,aeb_quiz_questions(id)')
       .eq('owner_id', ownerId).eq('is_published', true)
       .order('updated_at', { ascending: false });
     if (error) throw error;
     if (refreshId !== teacherRefreshId || ownerId !== teacherUser?.id) return;
     questionSets = (data || []).map(pack => ({
       id: pack.id, name: pack.title, description: pack.description || '',
-      count: pack.quiz_questions?.length || 0
+      count: pack.aeb_quiz_questions?.length || 0
     }));
     const selected = questionSets.find(set => set.id === selectedQuestionSet.id) || questionSets[0];
     selectedQuestionSet = selected ? { id: selected.id, name: selected.name } : { id: '', name: '' };

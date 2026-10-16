@@ -13,7 +13,7 @@
 
 เปิด `/admin` เพื่อสมัครหรือเข้าสู่ระบบด้วยอีเมล แล้วสร้างชุดข้อสอบ แก้ไขคำถามแบบ 4 ตัวเลือก ระบุเฉลย และกดเผยแพร่ นักเรียนจะเห็นเฉพาะชุดที่เผยแพร่แล้ว ครูแก้ไขได้เฉพาะชุดของบัญชีตนเองผ่าน Supabase Auth, Row Level Security และฟังก์ชันบันทึกแบบธุรกรรมเดียว
 
-โครงสร้างฐานข้อมูลอยู่ใน `supabase/migrations/` และใช้โปรเจกต์ Supabase ที่ระบุใน `supabase-public.json` (URL และ publishable key เป็นข้อมูลสาธารณะ) ห้ามใส่ service role key ในไฟล์นี้หรือฝั่ง client
+เกมใช้ฐานร่วม Frostbound Classroom โดยแยกตาราง Aebnian ด้วยชื่อ `aeb_` และใช้โปรเจกต์ Supabase ที่ระบุใน `supabase-public.json` (URL และ publishable key เป็นข้อมูลสาธารณะ) ห้ามใส่ service role key ในไฟล์นี้หรือฝั่ง client อ่านโครงสร้างฐานร่วมและสถานะการย้ายข้อมูลเก่าใน [supabase/SHARED_DATABASE.md](supabase/SHARED_DATABASE.md)
 
 ## รันในเครื่อง
 

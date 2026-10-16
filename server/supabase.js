@@ -1,8 +1,10 @@
 const config = require('../supabase-public.json');
 const sample = require('./sample-questions');
 
-const baseUrl = process.env.SUPABASE_URL || config.supabaseUrl;
-const key = process.env.SUPABASE_PUBLISHABLE_KEY || config.supabaseKey;
+// Match the browser's shared project so room authorization and teacher login
+// cannot drift onto different databases through an old deployment variable.
+const baseUrl = config.supabaseUrl;
+const key = config.supabaseKey;
 
 async function select(table, params) {
   const url = new URL(`/rest/v1/${table}`, baseUrl);
@@ -23,7 +25,7 @@ async function verifyTeacherPack(token, packId) {
   if (!userResponse.ok) return false;
   const user = await userResponse.json();
   if (!user.id) return false;
-  const url = new URL('/rest/v1/quiz_packs', baseUrl);
+  const url = new URL('/rest/v1/aeb_quiz_packs', baseUrl);
   url.searchParams.set('select', 'id');
   url.searchParams.set('id', `eq.${packId}`);
   url.searchParams.set('owner_id', `eq.${user.id}`);
@@ -35,7 +37,7 @@ async function verifyTeacherPack(token, packId) {
 }
 
 async function listSets() {
-  const rows = await select('quiz_packs', {
+  const rows = await select('aeb_quiz_packs', {
     select: 'id,title,description', is_published: 'eq.true', order: 'title.asc'
   });
   return [{ id: 'demo', name: 'ตัวอย่าง · ความรู้รอบตัว', description: 'ชุดตัวอย่างสำหรับทดลองเล่น', subject: 'ทั่วไป' }, ...rows.map(row => ({
@@ -51,7 +53,7 @@ async function listQuestions(setId) {
     order: 'position.asc'
   };
   if (setId) params.pack_id = `eq.${setId}`;
-  const rows = await select('quiz_questions', params);
+  const rows = await select('aeb_quiz_questions', params);
   const questions = rows.map(row => ({
     id: row.id,
     question_set_id: row.pack_id,
@@ -70,7 +72,7 @@ async function validateAnswer(questionId, answer, setId = null) {
     return setId && setId !== 'demo' ? null : sample.validate(questionId, answer);
   if (!isUuid(questionId)) return null;
   if (setId && !isUuid(setId)) return null;
-  const response = await fetch(new URL('/rest/v1/rpc/validate_published_quiz_answer', baseUrl), {
+  const response = await fetch(new URL('/rest/v1/rpc/aeb_validate_published_quiz_answer', baseUrl), {
     method: 'POST',
     headers: { apikey: key, 'Content-Type': 'application/json' },
     body: JSON.stringify({ p_question_id: questionId, p_choice: String(answer), p_set_id: setId })

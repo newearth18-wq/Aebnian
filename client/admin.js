@@ -8,7 +8,7 @@ function message(text) { $('message').textContent = text; }
 
 async function showSession() {
   const { data: { user }, error } = await db.auth.getUser();
-  if (error && error.name !== 'AuthSessionMissingError') message(error.message);
+  if (error && error.name !== 'AuthSessionMissingError') message(window.aebnianAuthError(error));
   $('authPanel').classList.toggle('hidden', !!user);
   $('editorPanel').classList.toggle('hidden', !user);
   if (user) {
@@ -18,8 +18,8 @@ async function showSession() {
 }
 
 async function loadPacks(ownerId) {
-  const { data, error } = await db.from('quiz_packs')
-    .select('id,title,description,is_published,quiz_questions(id,prompt,options,correct_option,explanation,position)')
+  const { data, error } = await db.from('aeb_quiz_packs')
+    .select('id,title,description,is_published,aeb_quiz_questions(id,prompt,options,correct_option,explanation,position)')
     .eq('owner_id', ownerId).order('updated_at', { ascending: false });
   if (error) return message(error.message);
   packs = data || [];
@@ -32,7 +32,7 @@ async function loadPacks(ownerId) {
     const title = document.createElement('strong');
     title.textContent = pack.title;
     const detail = document.createElement('small');
-    detail.textContent = `${pack.quiz_questions.length} ข้อ · ${pack.is_published ? 'เผยแพร่แล้ว · เลือกเล่นได้' : 'ฉบับร่าง · ยังไม่แสดงในเกม'}`;
+    detail.textContent = `${pack.aeb_quiz_questions.length} ข้อ · ${pack.is_published ? 'เผยแพร่แล้ว · เลือกเล่นได้' : 'ฉบับร่าง · ยังไม่แสดงในเกม'}`;
     button.append(title, detail);
     button.onclick = () => editPack(pack);
     list.appendChild(button);
@@ -49,7 +49,7 @@ function editPack(pack) {
   $('packDescription').value = pack?.description || '';
   $('packPublished').checked = !!pack?.is_published;
   $('questionEditor').replaceChildren();
-  const questions = [...(pack?.quiz_questions || [])].sort((a, b) => a.position - b.position);
+  const questions = [...(pack?.aeb_quiz_questions || [])].sort((a, b) => a.position - b.position);
   for (const question of questions) addQuestion(question);
   if (!questions.length) addQuestion();
   [...$('packList').children].forEach((button, index) =>
@@ -93,7 +93,7 @@ async function savePack(event) {
   if (questions.some(question => !question.prompt || question.options.some(option => !option)))
     return message('กรอกคำถามและตัวเลือกทั้ง 4 ให้ครบ');
   message('กำลังบันทึก…');
-  const { data, error } = await db.rpc('save_quiz_pack', {
+  const { data, error } = await db.rpc('aeb_save_quiz_pack', {
     p_id: editingId,
     p_title: $('packTitle').value.trim(),
     p_description: $('packDescription').value.trim(),
@@ -109,22 +109,54 @@ async function savePack(event) {
     : 'บันทึกเป็นฉบับร่างแล้ว ชุดนี้ยังไม่แสดงในหน้าสร้างห้อง');
 }
 
+let authBusy = false;
+function setAuthBusy(busy) {
+  authBusy = busy;
+  $('loginForm').querySelectorAll('button').forEach(button => button.disabled = busy);
+}
+
 $('loginForm').onsubmit = async event => {
   event.preventDefault();
+  if (authBusy) return;
+  setAuthBusy(true);
   message('กำลังเข้าสู่ระบบ…');
-  const { error } = await db.auth.signInWithPassword({
-    email: $('email').value.trim(), password: $('password').value
-  });
-  if (error) return message(error.message);
-  $('password').value = '';
-  await showSession();
-  message('เข้าสู่ระบบแล้ว');
+  try {
+    const { error } = await db.auth.signInWithPassword({
+      email: $('email').value.trim(), password: $('password').value
+    });
+    if (error) throw error;
+    $('password').value = '';
+    await showSession();
+    message('เข้าสู่ระบบแล้ว');
+  } catch (error) {
+    message(window.aebnianAuthError(error));
+  } finally {
+    setAuthBusy(false);
+  }
 };
 $('signup').onclick = async () => {
+  if (authBusy || !$('loginForm').reportValidity()) return;
   const email = $('email').value.trim(), password = $('password').value;
-  if (!email || password.length < 6) return message('ใส่อีเมลและรหัสผ่านอย่างน้อย 6 ตัวอักษร');
-  const { error } = await db.auth.signUp({ email, password });
-  message(error ? error.message : 'สมัครแล้ว โปรดยืนยันอีเมลก่อนเข้าสู่ระบบ');
+  setAuthBusy(true);
+  message('กำลังสมัครบัญชีครู…');
+  try {
+    const { data, error } = await db.auth.signUp({
+      email, password,
+      options: { emailRedirectTo: `${window.location.origin}/admin` }
+    });
+    if (error) throw error;
+    $('password').value = '';
+    if (data.session) {
+      await showSession();
+      message('สมัครบัญชีครูและเข้าสู่ระบบแล้ว');
+    } else {
+      message('ส่งคำขอสมัครแล้ว กรุณาตรวจกล่องจดหมายและสแปมเพื่อยืนยันอีเมล หากมีบัญชีอยู่แล้วให้เข้าสู่ระบบ');
+    }
+  } catch (error) {
+    message(window.aebnianAuthError(error));
+  } finally {
+    setAuthBusy(false);
+  }
 };
 $('logout').onclick = async () => { await db.auth.signOut(); editingId = null; await showSession(); };
 $('newPack').onclick = () => editPack(null);
