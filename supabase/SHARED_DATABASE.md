@@ -34,8 +34,12 @@ owner configured Brevo custom SMTP in the shared project's Auth dashboard:
 `smtp-relay.brevo.com`, port `587`, sender name `Classroom Games`. A fresh page
 load confirmed that the settings and an encrypted password were saved. The
 SMTP key stays in Supabase and must never be copied into this repository.
-An actual signup and email delivery test is still pending; saving configuration
-alone does not prove successful delivery. The verified sender currently uses
+An actual new-account signup and email delivery test is still pending; saving
+configuration alone does not prove successful delivery. The first signup test
+returned `user_repeated_signup` for an already confirmed shared account, so
+no verification email was dispatched. That user should sign in with their
+existing credentials; repeated signup does not reset their password.
+The verified sender currently uses
 a Gmail address; Brevo may replace its sender domain for delivery. A custom
 authenticated sender domain can be configured later for consistent branding.
 

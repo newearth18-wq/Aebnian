@@ -78,6 +78,16 @@ test('SMTP rejection has a useful Thai message and signup remains available for 
   assert.equal(get('signup').disabled, false);
 });
 
+test('obfuscated repeated signup does not claim an email was sent and explains existing credentials', async () => {
+  const { get } = page({ signUp: async () => ({
+    data: { session: null, user: { identities: [] } }, error: null
+  }) });
+  await get('signup').onclick();
+  assert.doesNotMatch(get('message').textContent, /ส่งคำขอสมัครแล้ว|ส่งอีเมลแล้ว/);
+  assert.match(get('message').textContent, /รหัสผ่านเดิม/);
+  assert.match(get('message').textContent, /ไม่ส่งอีเมลยืนยันใหม่/);
+});
+
 test('login reports returned Auth errors and recovers from network rejection', async () => {
   let calls = 0;
   const { get } = page({ signInWithPassword: async () => {
