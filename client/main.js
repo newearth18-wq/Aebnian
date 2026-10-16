@@ -79,7 +79,7 @@ function handlePlayerFound(targetId) {
     // I was caught — I join the hunt instead of sitting out
     if (gameEngine) gameEngine.convertToSeeker();
     currentGame.role = 'seeker';
-    paintToolbar.style.display = 'none';
+    setPaintMode(false);
     showCaughtOverlay();
     if (typeof soundFX !== 'undefined') soundFX.caught();
     renderAbilityBar();     // seeker powers from here on
@@ -403,7 +403,7 @@ function setupWebSocketListeners() {
     roomCodeInput.value = data.roomId;
     // Default role + map for the host; can still be tweaked from the lobby HUD
     currentGame.role = 'hider';
-    currentGame.mapId = currentGame.mapId || 'meadow';
+    currentGame.mapId = currentGame.mapId || DEFAULT_MAP_ID;
     startLobbyRoom();       // full-screen 3D lobby (host sees Start button + QR)
     updateRoleSelectorUI();
   });
@@ -436,7 +436,7 @@ function setupWebSocketListeners() {
       applyRoomSettings(data.settings);
       currentGame.round = data.round || 1;
       if (data.gameState === 'playing' && data.startTime) {
-        currentGame.mapId = currentGame.mapId || 'meadow';
+        currentGame.mapId = currentGame.mapId || DEFAULT_MAP_ID;
         _bootGame();
         // Pick the round up where it actually is, not from zero
         if (gameEngine) gameEngine.startTime = data.startTime;
@@ -453,7 +453,7 @@ function setupWebSocketListeners() {
     if (data.midGame && data.gameState === 'playing' && data.startTime) {
       applyRoomSettings(data.settings);
       currentGame.round = data.round || 1;
-      currentGame.mapId = currentGame.mapId || 'meadow';
+      currentGame.mapId = currentGame.mapId || DEFAULT_MAP_ID;
       _bootGame();
       // Join the round already in progress, not a fresh timer
       if (gameEngine) gameEngine.startTime = data.startTime;
@@ -462,8 +462,7 @@ function setupWebSocketListeners() {
     }
 
     // Joiners don't have a map picked yet — the host sends it when they start.
-    // Use meadow as the lobby backdrop until the real match begins.
-    currentGame.mapId = currentGame.mapId || 'meadow';
+    currentGame.mapId = currentGame.mapId || DEFAULT_MAP_ID;
     startLobbyRoom();       // joiners just get the 3D room with "waiting" note
   });
 
@@ -765,7 +764,7 @@ function handleStartGame() {
   wsClient.startGame(currentGame.roomId, 'playing', {
     duration: currentGame.duration || 300,
     questionSetId: currentGame.questionSetId || null,
-    mapId: currentGame.mapId || 'meadow'
+    mapId: currentGame.mapId || DEFAULT_MAP_ID
   });
 }
 
@@ -800,10 +799,10 @@ function startLobbyRoom() {
   gameEngine.startLobby();
   if (currentGame.duration) gameEngine.duration = currentGame.duration;
   gameEngine.initialize(currentGame.players, currentGame.playerId,
-    currentGame.role === 'hider', currentGame.mapId || 'meadow');
+    currentGame.role === 'hider', currentGame.mapId || DEFAULT_MAP_ID);
   // Ensure the flag survives initialize() which resets gameState
   gameEngine.lobbyMode = true;
-  if (typeof soundFX !== 'undefined') soundFX.startMusic(currentGame.mapId || 'meadow');
+  if (typeof soundFX !== 'undefined') soundFX.startMusic(currentGame.mapId || DEFAULT_MAP_ID);
 
   wireLocalGameEngine();
   updatePlayersList();
@@ -979,13 +978,13 @@ function stopMonitor() {
 // the spot, since walking, painting and posing all work in here.
 const HOW_TO_PLAY = [
   { icon: '🎨', title: 'ทาสีตัวเองให้กลืนกับฉาก',
-    text: 'ลากเมาส์ (หรือนิ้ว) บนตัวละครเพื่อระบายสี — นี่คือหัวใจของเกม ยิ่งสีตรงกับของรอบตัว ผู้หายิ่งเล็งโดนยาก' },
+    text: 'กด F หรือปุ่ม 🎨 ทาสี แล้วลากบนตัวละครเพื่อระบายสี กดเสร็จแล้วเพื่อกลับไปเดินและมองรอบตัว' },
   { icon: '💉', title: 'ดูดสีจากฉากมาใช้',
-    text: 'กด F หรือปุ่ม "ดูดสี" แล้วคลิกที่พื้น กำแพง หรือสิ่งของ เพื่อดูดสีนั้นมาทาตัว — วิธีพรางที่เนียนที่สุด' },
+    text: 'ในโหมดทาสี กด Space ค้างแล้วคลิกพื้นหรือผนังเพื่อดูดสี หรือเล็งฉากแล้วกด ✨ พรางสี เพื่อทาทั้งตัวทันที' },
   { icon: '🦎', title: 'ดูมาตรวัดความเนียน',
     text: 'ตอนเล่นจะมีแถบ 🦎 บอกว่าตอนนี้คุณกลืนกับที่ซ่อนแค่ไหน แดง = โดดเด่นมาก เขียว = เนียนแล้ว' },
   { icon: '🧍', title: 'เลือกท่าโพส + แปะผนัง',
-    text: 'คลิกขวา (หรือปุ่มท่าโพส) เพื่อเปลี่ยนท่า ท่าแนบผนังจะทำให้ดูเหมือนเป็นส่วนหนึ่งของฉาก' },
+    text: 'กด R หรือปุ่มท่าโพสเพื่อเลือกท่า กด Z / X หรือปุ่มหมุนในเมนูเพื่อจัดมุมตัวให้ตรงกับที่ซ่อน' },
   { icon: '⚡', title: 'ตอบคำถาม = ได้พลังพิเศษ',
     text: 'ตอบถูกจะได้พลังงาน ⚡ เอาไปแลกความสามารถ เช่น พรางอัตโนมัติ หุ่นล่อ ล่องหน แปลงร่างเป็นถัง' },
   { icon: '🧟', title: 'โดนจับแล้วไม่ตกรอบ',
@@ -1076,7 +1075,7 @@ function populateLobbyMapSelect() {
       if (gameEngine && gameEngine.lobbyMode) startLobbyRoom();
     });
   }
-  sel.value = currentGame.mapId || 'meadow';
+  sel.value = currentGame.mapId || DEFAULT_MAP_ID;
 }
 
 function renderLobbyList() {
@@ -1097,32 +1096,49 @@ function renderLobbyList() {
   if (pill) pill.textContent = currentGame.players.size;
 }
 
-// Compact-HUD toggles for phones: the paint toolbar and lobby panel are
-// collapsed by default (see CSS) — these header buttons expand them.
+function setPaintMode(on) {
+  if (on && !gameEngine?._canPaint()) return;
+  if (gameEngine) {
+    gameEngine.paintMode = !!on;
+    gameEngine.keys = {};
+    gameEngine._sampleHeld = false;
+    gameEngine.eyedropperMode = false;
+    gameEngine.setMoveInput(0, 0);
+  }
+  paintToolbar.classList.toggle('open', !!on);
+  paintToolbar.style.display = on ? 'flex' : 'none';
+  document.getElementById('paintToggleBtn').setAttribute('aria-pressed', String(!!on));
+  document.getElementById('mobPaint').classList.toggle('on', !!on);
+  document.getElementById('brushCursor').style.display = 'none';
+  updateEyedropperUI(false);
+}
+
+// Tools open on demand so the stage remains visible while walking and hunting.
 function setupMobileHudToggles() {
   if (setupMobileHudToggles._done) return;
   setupMobileHudToggles._done = true;
   const paintBtn = document.getElementById('paintToggleBtn');
   const lobbyBtn = document.getElementById('lobbyToggleBtn');
   const closeBothIfOutside = (target) => {
-    if (!target.closest('.paint-toolbar, #paintToggleBtn')) {
-      document.getElementById('paintToolbar').classList.remove('open');
-    }
     if (!target.closest('#lobbyPanel, #lobbyToggleBtn')) {
       document.getElementById('lobbyPanel').classList.remove('open');
     }
   };
   if (paintBtn) paintBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    document.getElementById('paintToolbar').classList.toggle('open');
+    setPaintMode(!gameEngine?.paintMode);
     document.getElementById('lobbyPanel').classList.remove('open');
   });
   if (lobbyBtn) lobbyBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     document.getElementById('lobbyPanel').classList.toggle('open');
-    document.getElementById('paintToolbar').classList.remove('open');
+    setPaintMode(false);
   });
-  // Tap anywhere on the game canvas closes both panels
+  document.getElementById('paintCloseBtn').addEventListener('click', () => setPaintMode(false));
+  document.getElementById('abilityHead').addEventListener('click', () => {
+    document.querySelector('.ability-panel')?.classList.toggle('expanded');
+  });
+  // Tap the scene to dismiss the player list; paint tools stay usable while painting.
   document.addEventListener('touchstart', (e) => closeBothIfOutside(e.target), { passive: true });
   document.addEventListener('click', (e) => closeBothIfOutside(e.target));
 }
@@ -1183,7 +1199,7 @@ function _bootGame() {
   gameEngine.initialize(currentGame.players, currentGame.playerId, currentGame.role === 'hider', currentGame.mapId);
 
   // Kick off the generative background music for this map
-  if (typeof soundFX !== 'undefined') soundFX.startMusic(currentGame.mapId || 'meadow');
+  if (typeof soundFX !== 'undefined') soundFX.startMusic(currentGame.mapId || DEFAULT_MAP_ID);
 
   wireLocalGameEngine();
 }
@@ -1191,9 +1207,12 @@ function _bootGame() {
 // Everything the game engine needs wired to the UI + WebSocket. Called from
 // both the lobby (engine in lobbyMode) and the real match boot.
 function wireLocalGameEngine() {
-  paintToolbar.style.display = 'flex';
+  setPaintMode(false);
+  gameEngine.onPaintModeToggle = () => setPaintMode(!gameEngine.paintMode);
   gameEngine.setPaintColor(paintState.color);
   gameEngine.setBrushSize(parseInt(brushSizeInput.value, 10));
+  finishPresetIndex = 0;
+  document.getElementById('finishBtn').textContent = '🪞 ผิว: ด้าน';
 
   // The host keeps the monitor button through the whole session (lobby + match)
   const monBtn = document.getElementById('overviewBtn');
@@ -1222,7 +1241,15 @@ function wireLocalGameEngine() {
   updatePowersDisplay();
 
   if (currentGame.role === 'hider') {
-    roleInfo.textContent = '🎨 Hider — WASD เดินตามมุมกล้อง · ลากพื้นที่ว่างหมุนกล้อง · ลากบนตัววาดลาย · Space กระโดด';
+    roleInfo.textContent = '🎨 ผู้ซ่อน · WASD เดิน · ลากหมุนกล้อง · F ทาสี · R เลือกท่า · Z/X หมุนตัว';
+    const hints = document.getElementById('controlHints');
+    if (hints) hints.innerHTML = `
+      <div><span class="hud-key">WASD</span> เดินตามมุมกล้อง</div>
+      <div><span class="hud-key">ลาก / Q / E</span> หมุนกล้อง</div>
+      <div><span class="hud-key">Space</span> กระโดด / ปีน</div>
+      <div><span class="hud-key">F</span> เปิด / ปิดโหมดทาสี</div>
+      <div><span class="hud-key">R</span> เลือกท่า · <span class="hud-key">Z / X</span> หมุนตัว</div>
+      <div><span class="hud-key">🎵</span> ส่งเสียงทุกนาทีในช่วงหา</div>`;
   } else {
     roleInfo.textContent = '👁️ Seeker — ช่วงรอ: ทาสีตัวเองได้! · หลังเริ่มล่า: คลิกยิงเลเซอร์ 🌈';
     // Swap the HUD hints for the seeker role
@@ -1370,6 +1397,9 @@ function wireLocalGameEngine() {
   const timerInterval = setInterval(() => {
     if (!gameEngine) return;
     const { phase, seconds } = gameEngine.getPhase();
+    const canPaint = gameEngine._canPaint();
+    document.getElementById('paintToggleBtn').style.display = canPaint ? '' : 'none';
+    if (!canPaint && gameEngine.paintMode) setPaintMode(false);
     const m = Math.floor(seconds / 60);
     const s = (seconds % 60).toString().padStart(2, '0');
     timerDisplay.textContent = `${m}:${s}`;
@@ -1499,15 +1529,6 @@ function setupMobileControls() {
   if (mobileWired) return; // wire the listeners only once
   mobileWired = true;
 
-  // --- Ability strip: tap the pill to slide the abilities out / fold them back ---
-  const abHead = document.getElementById('abilityHead');
-  if (abHead) {
-    abHead.addEventListener('click', () => {
-      const panel = document.querySelector('.ability-panel');
-      if (panel) panel.classList.toggle('expanded');
-    });
-  }
-
   // --- Virtual joystick ---
   // Touch anywhere in the lower-left zone and the stick appears under your
   // thumb (no need to hit the small circle). A dead zone + fast ramp means
@@ -1609,8 +1630,7 @@ function setupMobileControls() {
     paintBtn.addEventListener('touchstart', (e) => {
       e.preventDefault();
       if (!gameEngine) return;
-      gameEngine.paintMode = !gameEngine.paintMode;
-      paintBtn.classList.toggle('on', gameEngine.paintMode);
+      setPaintMode(!gameEngine.paintMode);
       showMessage(gameEngine.paintMode
         ? '🖌️ โหมดทาสี: ลากบนตัวเองเพื่อระบายสี'
         : '🎥 โหมดกล้อง: ลากเพื่อหมุนกล้อง', 'success');
@@ -2181,7 +2201,8 @@ function populateMapSelect() {
     opt.textContent = GAME_MAPS[id].name;
     mapSelect.appendChild(opt);
   });
-  currentGame.mapId = mapSelect.value; // default to first map
+  mapSelect.value = GAME_MAPS[currentGame.mapId] ? currentGame.mapId : DEFAULT_MAP_ID;
+  currentGame.mapId = mapSelect.value;
 }
 
 // ===== Paint System =====
@@ -2526,7 +2547,7 @@ function setupBrushCursor() {
   if (!cursor || !canvas) return;
 
   const place = (clientX, clientY) => {
-    if (!gameEngine || !gameEngine._canPaint || !gameEngine._canPaint()) {
+    if (!gameEngine || !gameEngine._canPaint() || !gameEngine.paintMode) {
       cursor.style.display = 'none';
       return;
     }
@@ -2534,8 +2555,9 @@ function setupBrushCursor() {
     const d = sz * 2 * BRUSH_SCREEN_FACTOR;
     cursor.style.width = d + 'px';
     cursor.style.height = d + 'px';
-    cursor.style.left = clientX + 'px';
-    cursor.style.top = clientY + 'px';
+    const rect = canvas.getBoundingClientRect();
+    cursor.style.left = (clientX - rect.left) + 'px';
+    cursor.style.top = (clientY - rect.top) + 'px';
     cursor.style.background = hexToRgba(paintState.color, 0.28);
     cursor.style.display = 'block';
     // Brighten the ring when it's actually over the body (paintable)
@@ -2578,11 +2600,13 @@ const POSE_WHEEL_ITEMS = [
 // Open/close helpers — freeze walking while the wheel is up so a stray
 // joystick touch doesn't drag the character around behind the menu
 function openPoseWheel() {
+  setPaintMode(false);
   poseWheel.style.display = 'block';
   document.getElementById('poseBackdrop').style.display = 'block';
   const mc = document.getElementById('mobileControls');
   mc.classList.add('posing'); // CSS disables the joystick zone
   if (gameEngine) {
+    gameEngine.keys = {};
     gameEngine.setMoveInput(0, 0);
     const knob = document.getElementById('joystickKnob');
     if (knob) knob.style.transform = 'translate(0,0)';
@@ -2640,6 +2664,15 @@ function setupPoseWheel() {
     more.textContent = extra.hidden ? 'ท่าอื่น ๆ ▾' : 'ซ่อนท่าอื่น ๆ ▴';
   });
   poseWheel.appendChild(more);
+  const rotate = document.createElement('div');
+  rotate.className = 'pose-rotate-row';
+  [[1, '↶ หมุนตัวซ้าย'], [-1, 'หมุนตัวขวา ↷']].forEach(([dir, label]) => {
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'pose-more-btn'; btn.textContent = label;
+    btn.addEventListener('click', () => gameEngine?.rotateBody(dir * Math.PI / 12));
+    rotate.appendChild(btn);
+  });
+  poseWheel.appendChild(rotate);
 
   // Right-click toggles the wheel. Bind to the game-container (a stable
   // parent) instead of the canvas — the canvas element is swapped out every
@@ -2654,7 +2687,7 @@ function setupPoseWheel() {
   });
 
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closePoseWheel();
+    if (e.key === 'Escape') { closePoseWheel(); setPaintMode(false); }
     // R matches the reference game's pose key; keep P for existing players.
     if ((e.key.toLowerCase() === 'r' || e.key.toLowerCase() === 'p') && !e.repeat
         && !e.target?.closest?.('input, textarea, select, [contenteditable="true"]')

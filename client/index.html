@@ -176,7 +176,7 @@
         <div class="score">Score: <span id="scoreDisplay">0</span></div>
         <!-- Mobile-only toggles: collapse the paint toolbar + lobby panel so
              they don't blanket the play area (see .paint-toolbar CSS) -->
-        <button id="paintToggleBtn" class="btn btn-small mobile-only" title="กล่องระบายสี">🎨</button>
+        <button id="paintToggleBtn" class="btn btn-small" title="ทาสี / กลับไปเดิน (F)" aria-pressed="false">🎨 <span class="paint-toggle-label">ทาสี (F)</span></button>
         <button id="lobbyToggleBtn" class="btn btn-small mobile-only" title="รายชื่อผู้เล่น">🎭 <span id="lobbyToggleCount">0</span></button>
         <!-- Host-only: the room code stays reachable during the match so the
              teacher can read it out to a student who joins late -->
@@ -190,6 +190,8 @@
 
       <!-- Paint Toolbar (Hider only) -->
       <div id="paintToolbar" class="paint-toolbar" style="display: none;">
+        <div class="paint-tool-head"><strong>🎨 ระบายสีพรางตัว</strong><button id="paintCloseBtn" class="btn btn-small">✓ เสร็จแล้ว</button></div>
+        <p class="paint-tool-help">ลากบนตัวเพื่อทาสี · ลากพื้นที่ว่างหมุนกล้อง<br>Space + คลิกฉากเพื่อดูดสี · F กลับไปเดิน</p>
         <span class="tool-label">🎨 สี:</span>
         <input type="color" id="colorPicker" value="#e74c3c" title="เลือกสีอิสระ">
         <div id="colorPalette" class="color-palette"></div>
@@ -197,7 +199,7 @@
         <input type="range" id="brushSize" min="4" max="40" value="14">
         <span class="brush-size-preview" title="ขนาดพู่กัน"><span id="brushDot"></span></span>
         <span class="tool-label" id="brushSizeNum">14</span>
-        <button id="eyedropperBtn" class="btn btn-small">💉 ดูดสี (F)</button>
+        <button id="eyedropperBtn" class="btn btn-small">💉 ดูดสีจากฉาก</button>
         <button id="camouflageBtn" class="btn btn-small">✨ ดูดสีตรงหน้า + ทาทั้งตัว</button>
         <button id="paintAllBtn" class="btn btn-small">🪣 ทาทั้งตัว</button>
         <button id="finishBtn" class="btn btn-small" title="สลับผิวด้าน ผิวมัน และโลหะ">🪞 ผิว: ด้าน</button>
@@ -301,8 +303,8 @@
           <div><span class="hud-key">Space</span> กระโดด · ดันกำแพงค้าง = ปีน</div>
           <div><span class="hud-key">Q / E</span> หมุนกล้อง</div>
           <div><span class="hud-key">ลูกกลิ้ง</span> ซูม</div>
-          <div><span class="hud-key">ลากบนตัว</span> วาดลาย</div>
-          <div><span class="hud-key">F</span> ดูดสีจากฉาก</div>
+          <div><span class="hud-key">F</span> เปิด / ปิดโหมดทาสี</div>
+          <div><span class="hud-key">Z / X</span> หมุนตัวขณะยืนโพส</div>
           <div><span class="hud-key">R / คลิกขวา</span> เลือกท่าโพส</div>
           <div><span class="hud-key">🎵</span> ผู้ซ่อนส่งเสียงทุก 1 นาทีในช่วงหา</div>
         </div>

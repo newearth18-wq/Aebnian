@@ -638,7 +638,7 @@ body.touch-device #crosshair.locked { width: 40px; height: 40px; }
   left: 0;
   right: 0;
   z-index: 15;
-  background: rgba(0, 0, 0, 0.42);
+  background: transparent;
   color: white;
   padding: 8px 15px;
   display: flex;
@@ -651,19 +651,30 @@ body.touch-device #crosshair.locked { width: 40px; height: 40px; }
 /* Paint Toolbar */
 .paint-toolbar {
   position: absolute;
-  top: 48px; /* just under the floating game-header */
-  left: 0;
-  right: 0;
-  z-index: 18;
-  background: var(--glass);
+  top: 64px;
+  left: 12px;
+  width: min(330px, calc(100vw - 24px));
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+  z-index: 48;
+  background: rgba(23, 29, 30, .95);
   backdrop-filter: blur(4px);
   color: white;
-  padding: 10px 15px;
+  padding: 14px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
   flex-wrap: wrap;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.3);
 }
+.paint-tool-head { position: sticky; top: -1px; z-index: 2; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 0; background: #171d1e; }
+.paint-tool-head strong { font-size: 15px; }
+.paint-tool-help { width: 100%; color: #cad7cd; font-size: 11px; line-height: 1.7; }
+.paint-toolbar .btn.btn-small { padding: 8px 10px; font-size: 12px; }
+.paint-toolbar .color-palette { width: 100%; }
+#paintToggleBtn[aria-pressed="true"] { background: var(--g-amber); color: #342600; }
 
 .tool-label {
   font-weight: 600;
@@ -820,6 +831,8 @@ body.touch-device #crosshair.locked { width: 40px; height: 40px; }
   color: #fff;
 }
 .pose-more-btn { display: block; width: 100%; margin-top: 10px; min-height: 44px; border: 1px solid #b8c1d1; border-radius: 12px; background: #303b51; color: #fff; font: inherit; }
+.pose-rotate-row { display: flex; gap: 8px; }
+.pose-rotate-row .pose-more-btn { font-size: 13px; }
 
 #soundCue {
   position: absolute;
@@ -893,7 +906,12 @@ body.touch-device #crosshair.locked { width: 40px; height: 40px; }
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
+  cursor: pointer;
+  gap: 12px;
 }
+.ability-panel:not(.expanded) .ability-head { margin-bottom: 0; }
+.ability-panel:not(.expanded) .ability-bar,
+.ability-panel:not(.expanded) .ability-hint { display: none; }
 
 .ability-title { font-size: 13px; font-weight: 700; opacity: 0.9; }
 
@@ -1778,6 +1796,8 @@ body.touch-device .tip-hint { display: none; }
    tablets can exceed 820px yet still need the collapsed HUD. */
 body.touch-device #controlHints { display: none; } /* touch controls replace key hints */
 body.touch-device .paint-toolbar { padding: 8px 10px; gap: 8px; }
+body.touch-device .paint-toggle-label { display: none; }
+body.touch-device .paint-toolbar { top: 48px; left: 8px; width: min(300px, calc(100vw - 16px)); }
 body.touch-device .swatch { width: 26px; height: 26px; }
 body.touch-device #remainingNumber { font-size: 30px; }
 body.touch-device #hideStatus { font-size: 12px; padding: 5px 12px; top: 8px; }

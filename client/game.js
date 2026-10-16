@@ -1,8 +1,9 @@
 // 3D Game Engine (Three.js) for MECCHA CHAMELEON
 // Controls: WASD/arrows to walk, drag mouse to look, click a body part to paint it.
 
-// Player body scale by role: hiders small (harder to spot), seekers big
-const PLAYER_SCALE = { hider: 0.7, seeker: 1.35 };
+// Both teams use the same paintable mannequin silhouette.
+const PLAYER_SCALE = { hider: 1, seeker: 1 };
+const DEFAULT_MAP_ID = 'mansion';
 
 // Reused straight-down vector for the "what am I standing on?" ray
 const DOWN_VEC = new THREE.Vector3(0, -1, 0);
@@ -945,17 +946,15 @@ const GAME_MAPS = {
     // in gold, a marble floor, gilded Corinthian columns, crystal chandeliers,
     // carved fireplaces, tall drapes, gilt mirrors, velvet sofas, marble
     // statues and console tables of flowers in every room.
-    name: '🏰 คฤหาสน์ 6 ห้อง', sky: 0x171310, ground: 0x8c8274, groundTexture: 'checker',
-    // Lit like a candle-lit manor at dusk rather than a showroom: the cream
-    // plasterwork was blowing out to flat white, which washed the gold detail
-    // off the columns and mirrors. Warm, low light + a tinted floor keeps the
-    // palette but lets the gilding and the chandeliers actually read.
+    name: '🏰 คฤหาสน์ 6 ห้อง', sky: 0x24271f, ground: 0x8c8274, groundTexture: 'checker', scale: 1.2,
+    // Warm marble, green patterned wallpaper and walnut panels provide
+    // distinct surfaces to paint against, with soft light on the white rig.
     groundTint: 0x9a9184,
     // Soft cream/taupe marble squares instead of a hard black-and-white
     // chequerboard, so a wide room isn't half-covered in near-black tiles
-    checkerColors: ['#d6cec0', '#9c9284'],
-    walls: { base: '#87795f', pattern: '#736750' }, light: 0.5, ceiling: 0x6f6555,
-    sunColor: 0xffdcac, ambientColor: 0x8a7863,
+    checkerColors: ['#d8cdb7', '#645548'],
+    walls: { base: '#375b43', pattern: '#294633', motif: 'damask' }, wainscot: true, scatterDensity: 1, light: 0.72, ceiling: 0xc4b99c,
+    sunColor: 0xffe7c5, ambientColor: 0xa1ac9c, fillLight: 0.32, sunLight: 0.6,
     fog: { color: 0x2a231c, near: 60, far: 190 },
     ceilingPanels: false,   // lit by its own chandeliers + sconces instead
     spawn: [0, 0, 0], // central entrance hall
@@ -972,11 +971,7 @@ const GAME_MAPS = {
       // Spare seating pushed against the walls of every room
       { type: 'velvetsofa', count: 4, colors: [0x6b3a4a, 0x3f5a7a, 0x5f7d3a, 0x7a6a4a] }
     ],
-    // Lighting is spread to the same density everywhere so no part of the
-    // house reads brighter than another. The hall used to carry a sconce every
-    // 7 units against a room's every 6.5 over an area three times the size,
-    // which made the corridor glare next to its own rooms; it now gets a wider
-    // spacing and the rooms carry a chandelier over every quarter instead.
+    // Wall fixtures and pilasters frame the six connected rooms.
     grid: [
       { type: 'sconce', rows: 5, cols: 1, x0: -3.5, z0: -28, dx: 0, dz: 14, y: 5.4, ry: 1.5708 },
       { type: 'sconce', rows: 5, cols: 1, x0: 3.5, z0: -28, dx: 0, dz: 14, y: 5.4, ry: -1.5708 },
@@ -987,9 +982,8 @@ const GAME_MAPS = {
       { type: 'column', rows: 9, cols: 1, x0: 28.6, z0: -26, dx: 0, dz: 6.5, h: 8.6, r: 0.42 },
       // Pilasters flanking the corridor openings of each room
       { type: 'column', rows: 3, cols: 2, x0: -10.6, z0: -20, dx: 21.2, dz: 20, h: 8.6, r: 0.45 },
-      // A chandelier over each quarter of every room
-      { type: 'chandelier', rows: 6, cols: 2, x0: -22, z0: -25, dx: 10, dz: 10 },
-      { type: 'chandelier', rows: 6, cols: 2, x0: 12, z0: -25, dx: 10, dz: 10 }
+      // Each room already has a chandelier in objects; keep those single
+      // fixtures instead of rendering four additional copies over each room.
     ],
     // Central corridor (x -4..4); 3 rooms on each side, doorway per room
     interiorWalls: [
@@ -1013,8 +1007,8 @@ const GAME_MAPS = {
     objects: [
       // ===== Grand entrance hall (the central corridor) =====
       // Red carpet with gold trim running the full length
-      { type: 'box', x: 0, z: 0, w: 7, h: 0.08, d: 140, color: 0x8a2222 },
-      { type: 'box', x: 0, z: 0, w: 8, h: 0.05, d: 142, color: 0xc8a030 },
+      { type: 'box', x: 0, z: 0, w: 7, h: 0.08, d: 70, color: 0x8a2222 },
+      { type: 'box', x: 0, z: 0, w: 8, h: 0.05, d: 71, color: 0xc8a030 },
       // Gilded Corinthian colonnade down both sides of the hall
       { type: 'column', x: -3.1, z: -22, h: 8.6, r: 0.6 },
       { type: 'column', x: 3.1, z: -22, h: 8.6, r: 0.6 },
@@ -1945,6 +1939,26 @@ function makeWoodTexture(base, grain, size) {
   return tex;
 }
 
+// Recessed walnut wall panels for the mansion's lower walls.
+function makePanelledWoodTexture() {
+  const cv = document.createElement('canvas');
+  cv.width = 256; cv.height = 512;
+  const ctx = cv.getContext('2d');
+  const wood = ctx.createLinearGradient(0, 0, 256, 0);
+  wood.addColorStop(0, '#342116'); wood.addColorStop(0.5, '#65422b'); wood.addColorStop(1, '#392318');
+  ctx.fillStyle = wood; ctx.fillRect(0, 0, 256, 512);
+  for (let x = 0; x < 256; x += 5) {
+    ctx.strokeStyle = `rgba(22,12,6,${0.08 + (Math.sin(x * 1.7) + 1) * 0.05})`;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.bezierCurveTo(x + 8, 170, x - 8, 340, x, 512); ctx.stroke();
+  }
+  ctx.strokeStyle = '#25180f'; ctx.lineWidth = 12; ctx.strokeRect(20, 26, 216, 460);
+  ctx.strokeStyle = '#9b7044'; ctx.lineWidth = 3; ctx.strokeRect(28, 34, 200, 444);
+  ctx.strokeStyle = '#3b2619'; ctx.lineWidth = 5; ctx.strokeRect(38, 44, 180, 424);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
 // Polka-dot texture
 function makeDotsTexture(base, dot, size) {
   size = size || 256;
@@ -1985,7 +1999,7 @@ function makeRainbowTexture() {
 }
 
 // Damask-ish wallpaper: base color with a repeating motif
-function makeWallpaperTexture(base, pattern, size) {
+function makeWallpaperTexture(base, pattern, size, motif) {
   size = size || 256;
   const cv = document.createElement('canvas');
   cv.width = cv.height = size;
@@ -1998,6 +2012,23 @@ function makeWallpaperTexture(base, pattern, size) {
     for (let x = 0; x < 4; x++) {
       const cx = x * step + step / 2 + (y % 2 ? step / 2 : 0);
       const cy = y * step + step / 2;
+      if (motif === 'damask') {
+        ctx.save(); ctx.translate(cx % size, cy);
+        ctx.strokeStyle = pattern; ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.moveTo(0, -step * 0.4); ctx.lineTo(0, step * 0.4); ctx.stroke();
+        for (const side of [-1, 1]) {
+          ctx.save(); ctx.scale(side, 1);
+          ctx.beginPath(); ctx.moveTo(0, 12);
+          ctx.bezierCurveTo(27, 8, 24, -18, 13, -12);
+          ctx.bezierCurveTo(6, -8, 17, -3, 14, 3);
+          ctx.bezierCurveTo(10, 8, 3, 4, 0, 0); ctx.fill();
+          ctx.beginPath(); ctx.ellipse(7, -18, 4, 8, -0.5, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+        ctx.beginPath(); ctx.moveTo(0, -29); ctx.lineTo(4, -23); ctx.lineTo(0, -17); ctx.lineTo(-4, -23); ctx.closePath(); ctx.fill();
+        ctx.restore();
+        continue;
+      }
       ctx.beginPath();
       ctx.ellipse(cx, cy, step * 0.22, step * 0.34, 0, 0, Math.PI * 2);
       ctx.fill();
@@ -2071,16 +2102,17 @@ class GameEngine {
 
     // Camera orbit state
     this.camAngle = Math.PI;
-    this.camPitch = 0.35;
-    this.camDist = 12;
+    this.camPitch = 0.16;
+    this.camDist = 7.5;
 
     this._boundResize = () => this._onResize();
   }
 
   initialize(players, currentPlayerId, isHider, mapId) {
     this.isHider = isHider;
-    this.mapId = mapId && GAME_MAPS[mapId] ? mapId : 'meadow';
+    this.mapId = mapId && GAME_MAPS[mapId] ? mapId : DEFAULT_MAP_ID;
     this.startTime = Date.now();
+    this._cameraReady = false;
     this.gameState = 'playing';
     // Lobby mode: engine runs so players can walk + paint while waiting, but
     // getPhase() reports 'lobby' so no one gets caught and the timer doesn't
@@ -2165,11 +2197,11 @@ class GameEngine {
     // so the explicit fills are cut back hard — left as they were, the two
     // stack and every stage came out ~40 luminance points brighter than it was
     // tuned at, which is the glare we just spent two rounds removing.
-    const ambient = new THREE.AmbientLight(mapCfg.ambientColor || 0xffffff, 0.14 * L);
+    const ambient = new THREE.AmbientLight(mapCfg.ambientColor || 0xffffff, (mapCfg.fillLight ?? 0.14) * L);
     this.scene.add(ambient);
     const hemi = new THREE.HemisphereLight(mapCfg.ambientColor || 0xffffff, 0x666680, 0.13 * L);
     this.scene.add(hemi);
-    const sun = new THREE.DirectionalLight(mapCfg.sunColor || 0xffffff, 0.78 * L);
+    const sun = new THREE.DirectionalLight(mapCfg.sunColor || 0xffffff, (mapCfg.sunLight ?? 0.78) * L);
     // Push the sun out in proportion to the stage so its shadow frustum can
     // cover the whole map — a fixed close position only shadowed the middle
     const stageSize = (mapCfg.size || 60) * (mapCfg.scale || DEFAULT_MAP_SCALE);
@@ -2196,7 +2228,7 @@ class GameEngine {
   }
 
   _buildStage() {
-    const map = GAME_MAPS[this.mapId] || GAME_MAPS.meadow;
+    const map = GAME_MAPS[this.mapId] || GAME_MAPS[DEFAULT_MAP_ID];
     this.wallBoxes = []; // AABBs for collision (interior walls)
     // Meshes the follow-camera must not reverse through (outer + interior
     // walls). Backing into one filled the screen with wallpaper.
@@ -2264,8 +2296,8 @@ class GameEngine {
 
     // Walls (indoor maps) with wallpaper texture
     if (map.walls) {
-      const wtex = makeWallpaperTexture(map.walls.base, map.walls.pattern);
-      wtex.repeat.set(8, 3);
+      const wtex = makeWallpaperTexture(map.walls.base, map.walls.pattern, 256, map.walls.motif);
+      wtex.repeat.set(map.walls.motif ? size / 3.5 : 8, 3);
       const wallMat = new THREE.MeshStandardMaterial({ map: wtex, side: THREE.DoubleSide });
       const H = 9, span = size, y = H / 2, edge = size / 2;
       const addWall = (x, z, ry) => {
@@ -2310,15 +2342,20 @@ class GameEngine {
     // Interior partition walls (solid boxes with collision) — for multi-room maps
     if (map.interiorWalls) {
       const iwTex = map.walls
-        ? makeWallpaperTexture(map.walls.base, map.walls.pattern)
+        ? makeWallpaperTexture(map.walls.base, map.walls.pattern, 256, map.walls.motif)
         : null;
       if (iwTex) iwTex.repeat.set(4, 2);
       const H = 9;
       map.interiorWalls.forEach(w => {
         // Scale the whole layout so rooms and doorways widen together
         const wx = w.x * S, wz = w.z * S, ww = w.w * S, wd = w.d * S;
+        const wallMap = iwTex && map.walls.motif ? iwTex.clone() : iwTex;
+        if (wallMap && map.walls.motif) {
+          wallMap.repeat.set(Math.max(ww, wd) / 3.5, 3);
+          wallMap.needsUpdate = true;
+        }
         const mat = iwTex
-          ? new THREE.MeshStandardMaterial({ map: iwTex })
+          ? new THREE.MeshStandardMaterial({ map: wallMap })
           : new THREE.MeshStandardMaterial({ color: 0xd8cabb });
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(ww, H, wd), mat);
         mesh.position.set(wx, H / 2, wz);
@@ -2328,6 +2365,30 @@ class GameEngine {
         this.wallBoxes.push({
           minX: wx - ww / 2, maxX: wx + ww / 2,
           minZ: wz - wd / 2, maxZ: wz + wd / 2, top: H
+        });
+      });
+    }
+
+    if (map.wainscot) {
+      const edge = size / 2;
+      const panels = [
+        { x: 0, z: -edge + 0.06, w: size, d: 0.14 },
+        { x: 0, z: edge - 0.06, w: size, d: 0.14 },
+        { x: -edge + 0.06, z: 0, w: 0.14, d: size },
+        { x: edge - 0.06, z: 0, w: 0.14, d: size },
+        ...(map.interiorWalls || []).map(w => ({ x: w.x * S, z: w.z * S, w: w.w * S + 0.14, d: w.d * S + 0.14 }))
+      ];
+      const trimMat = new THREE.MeshStandardMaterial({ color: 0x9b7447, roughness: 0.5, metalness: 0.25 });
+      panels.forEach(p => {
+        const tex = makePanelledWoodTexture();
+        tex.repeat.set(Math.max(p.w, p.d) / 3.5, 1);
+        const panel = new THREE.Mesh(new THREE.BoxGeometry(p.w, 2.15, p.d),
+          new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }));
+        panel.position.set(p.x, 1.075, p.z);
+        this._shade(panel); this.scene.add(panel);
+        [0.12, 2.15].forEach(y => {
+          const trim = new THREE.Mesh(new THREE.BoxGeometry(p.w + 0.06, 0.12, p.d + 0.06), trimMat);
+          trim.position.set(p.x, y, p.z); this.scene.add(trim);
         });
       });
     }
@@ -2357,11 +2418,16 @@ class GameEngine {
 
     // Scattered props: randomly place many extra objects across the stage
     if (map.scatter) {
-      const rand = (range) => range[0] + Math.random() * (range[1] - range[0]);
+      // Every client, including late joiners, builds the same hiding cover.
+      // Use a separate seeded stream so random texture detail cannot move props.
+      let layoutSeed = Array.from(this.mapId).reduce((seed, c) => Math.imul(seed ^ c.charCodeAt(0), 16777619), 2166136261) >>> 0;
+      const layoutRandom = () => {
+        layoutSeed = (Math.imul(layoutSeed, 1664525) + 1013904223) >>> 0;
+        return layoutSeed / 4294967296;
+      };
+      const rand = (range) => range[0] + layoutRandom() * (range[1] - range[0]);
       const spawn = map.spawn || [0, 0, 8];
-      // More players → more cover so a crowded room still has places to hide.
-      // Ramps from ×3 (small games) up to ×5 at ~40 players.
-      const crowd = 3 + Math.min(2, Math.max(0, (this._playerCount - 6) / 17));
+      const crowd = map.scatterDensity || 3;
       // Bigger stages get proportionally more props so an enlarged map never
       // feels bare — scales gently with the play area, capped for performance.
       const areaBoost = Math.max(1, Math.min(1.4, this.bound / 82));
@@ -2371,12 +2437,14 @@ class GameEngine {
           // Keep clear of the spawn point so players don't start inside a prop
           let x, z, tries = 0;
           do {
-            x = -this.bound + 4 + Math.random() * (this.bound * 2 - 8);
-            z = -this.bound + 4 + Math.random() * (this.bound * 2 - 8);
+            x = -this.bound + 4 + layoutRandom() * (this.bound * 2 - 8);
+            z = -this.bound + 4 + layoutRandom() * (this.bound * 2 - 8);
             tries++;
-          } while (Math.hypot(x - spawn[0], z - spawn[2]) < 9 && tries < 12);
+          } while ((Math.hypot(x - spawn[0] * S, z - spawn[2] * S) < 7 ||
+            this.wallBoxes.some(b => x > b.minX - 1.5 && x < b.maxX + 1.5 && z > b.minZ - 1.5 && z < b.maxZ + 1.5)) && tries < 24);
+          if (tries === 24) continue;
 
-          const o = { type: s.type, color: s.colors[i % s.colors.length], x, z };
+          const o = { type: s.type, color: s.colors[i % s.colors.length], x, z, ry: layoutRandom() * Math.PI * 2 };
           if (s.texture) o.texture = s.texture;
           if (s.emissive) { o.emissive = s.emissive; o.emissiveIntensity = s.emissiveIntensity; }
           if (s.y) o.y = rand(s.y);
@@ -2392,7 +2460,7 @@ class GameEngine {
                             'washer', 'foldtable', 'laundrybasket', 'detergentshelf'];
           if (COMPOUND.includes(s.type)) { /* builder handles sizing */ }
           else if (s.type === 'sphere') { o.r = rand(s.r); }
-          else if (s.type === 'rock' || s.type === 'lavarock') { o.r = rand(s.r); o.sy = 0.65 + Math.random() * 0.35; }
+          else if (s.type === 'rock' || s.type === 'lavarock') { o.r = rand(s.r); o.sy = 0.65 + layoutRandom() * 0.35; }
           else if (s.type === 'cone' || s.type === 'cylinder' ||
                    s.type === 'cactus' || s.type === 'mesa' ||
                    s.type === 'bigtree' || s.type === 'snowpine') { o.r = rand(s.r); o.h = rand(s.h); }
@@ -5428,7 +5496,7 @@ class GameEngine {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.MeshStandardMaterial({ map: texture });
+    const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.9 });
     return { material, canvas, ctx, texture };
   }
 
@@ -5442,26 +5510,26 @@ class GameEngine {
     // off this so it can bend forward/back/sideways from the hips. Legs stay
     // on the root so they keep their footing when the torso bends.
     const waist = new THREE.Group();
-    waist.position.y = 1.1;
+    waist.position.y = 1.22;
     root.add(waist);
 
     // Body (relative to waist) — a smooth egg-shaped torso instead of a box
     const bodyP = mk();
-    const bodyMesh = new THREE.Mesh(new THREE.SphereGeometry(0.55, 18, 16), bodyP.material);
+    const bodyMesh = new THREE.Mesh(new THREE.SphereGeometry(0.55, 24, 20), bodyP.material);
     bodyMesh.userData.paint = bodyP;
-    bodyMesh.scale.set(0.95, 1.28, 0.75);
-    bodyMesh.position.y = 0.35; // world ~1.45
+    bodyMesh.scale.set(0.98, 1.38, 0.72);
+    bodyMesh.position.y = 0.28;
     waist.add(bodyMesh);
 
     // Pelvis blob under the torso, bridging into the legs (shares body paint)
     const pelvis = new THREE.Mesh(new THREE.SphereGeometry(0.36, 14, 12), bodyP.material);
     pelvis.userData.paint = bodyP;
-    pelvis.scale.set(1.25, 0.8, 1);
-    pelvis.position.y = -0.12;
+    pelvis.scale.set(1.3, 0.95, 1);
+    pelvis.position.y = -0.1;
     waist.add(pelvis);
 
     // Neck connector between torso and head (shares body paint)
-    const neckMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.19, 0.4, 10), bodyP.material);
+    const neckMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.24, 0.36, 16), bodyP.material);
     neckMesh.userData.paint = bodyP;
     neckMesh.position.y = 1.0;
     waist.add(neckMesh);
@@ -5469,33 +5537,32 @@ class GameEngine {
     // Shoulders — share the body paint.
     // NOTE: no .clone() here — Object3D.clone() JSON-copies userData and would
     // destroy the live canvas context reference in userData.paint.
-    const shoulderGeo = new THREE.SphereGeometry(0.22, 12, 12);
+    const shoulderGeo = new THREE.SphereGeometry(0.26, 16, 16);
     const shoulderL = new THREE.Mesh(shoulderGeo, bodyP.material);
     shoulderL.userData.paint = bodyP;
-    shoulderL.position.set(-0.55, 0.85, 0);
+    shoulderL.position.set(-0.48, 0.76, 0);
     const shoulderR = new THREE.Mesh(shoulderGeo, bodyP.material);
     shoulderR.userData.paint = bodyP;
-    shoulderR.position.set(0.55, 0.85, 0);
+    shoulderR.position.set(0.48, 0.76, 0);
     waist.add(shoulderL, shoulderR);
 
     // ── Neck joint + head (head can tilt independently)
     const neck = new THREE.Group();
-    neck.position.y = 1.25; // world ~2.35
+    neck.position.y = 1.31;
     const headP = mk();
-    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 24), headP.material);
+    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.45, 28, 24), headP.material);
     headMesh.userData.paint = headP;
-    this._drawFace(headP);
     neck.add(headMesh);
     waist.add(neck);
 
     // ── Arms with elbows (attached to the waist so they bend with the torso)
-    const armL = this._jointedLimb(-0.65, 0.45, mk, 0.25, 0.55, 0.5, 'hand');
-    const armR = this._jointedLimb(0.65, 0.45, mk, 0.25, 0.55, 0.5, 'hand');
+    const armL = this._jointedLimb(-0.58, 0.75, mk, 0.43, 0.54, 0.5, 'hand');
+    const armR = this._jointedLimb(0.58, 0.75, mk, 0.43, 0.54, 0.5, 'hand');
     waist.add(armL.pivot, armR.pivot);
 
     // ── Legs with knees (attached to the root — hips stay planted)
-    const legL = this._jointedLimb(-0.25, 0.95, mk, 0.3, 0.55, 0.5, 'foot');
-    const legR = this._jointedLimb(0.25, 0.95, mk, 0.3, 0.55, 0.5, 'foot');
+    const legL = this._jointedLimb(-0.25, 1.25, mk, 0.47, 0.55, 0.5, 'foot');
+    const legR = this._jointedLimb(0.25, 1.25, mk, 0.47, 0.55, 0.5, 'foot');
     root.add(legL.pivot, legR.pivot);
 
     // Part order matters: paint strokes are relayed by part INDEX between
@@ -5524,11 +5591,11 @@ class GameEngine {
     this.legL = rig.legL; this.legR = rig.legR;
     this.characterParts = rig.parts;
 
-    const map = GAME_MAPS[this.mapId] || GAME_MAPS.meadow;
+    const map = GAME_MAPS[this.mapId] || GAME_MAPS[DEFAULT_MAP_ID];
     const S = this.mapScale || 1;
     const spawn = map.spawn || [0, 0, 8];
     this.character.position.set(spawn[0] * S, spawn[1], spawn[2] * S);
-    // Hiders are small (harder to spot); seekers are big and imposing
+    // Match the white mannequin's proportions on both teams.
     this.character.scale.setScalar(this.isHider ? PLAYER_SCALE.hider : PLAYER_SCALE.seeker);
     this.charHeading = 0;
     this.scene.add(this.character);
@@ -5582,36 +5649,6 @@ class GameEngine {
     }
   }
 
-  // Draw a friendly face (eyes with pupils + smile + cheeks) onto the head texture
-  _drawFace(paint) {
-    const ctx = paint.ctx;
-    // Eye whites
-    ctx.fillStyle = '#fff';
-    ctx.strokeStyle = '#222';
-    ctx.lineWidth = 3;
-    [[104, 96], [152, 96]].forEach(([x, y]) => {
-      ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    });
-    // Pupils
-    ctx.fillStyle = '#222';
-    [[107, 99], [155, 99]].forEach(([x, y]) => {
-      ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
-    });
-    // Smile
-    ctx.strokeStyle = '#222';
-    ctx.lineWidth = 4;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.arc(128, 108, 22, 0.25 * Math.PI, 0.75 * Math.PI);
-    ctx.stroke();
-    // Rosy cheeks
-    ctx.fillStyle = 'rgba(240, 130, 130, 0.55)';
-    [[86, 112], [170, 112]].forEach(([x, y]) => {
-      ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fill();
-    });
-    paint.texture.needsUpdate = true;
-  }
-
   // Create a limb as a pivot group so it swings from the top joint.
   // capType: 'hand' (sphere) or 'foot' (forward box) — shares the limb's paint texture.
   _limb(x, jointY, paint, width = 0.25, length = 1.0, capType = null) {
@@ -5646,44 +5683,44 @@ class GameEngine {
 
     // Rounded limbs: tapered cylinders instead of boxes, plus a ball at each
     // joint so bends stay smooth and connected (no box gaps) — reads human
-    const r1 = width * 0.56, r2 = width * 0.5;
+    const r1 = width * 0.52, r2 = width * 0.5;
 
     const upperP = mk();
-    const upper = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, upperLen, 10), upperP.material);
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(r1, r2, upperLen, 16), upperP.material);
     upper.userData.paint = upperP;
     upper.position.y = -upperLen / 2;
 
     // Shoulder/hip ball at the pivot (shares the upper limb's paint)
-    const jointBall = new THREE.Mesh(new THREE.SphereGeometry(r1 * 1.06, 10, 10), upperP.material);
+    const jointBall = new THREE.Mesh(new THREE.SphereGeometry(r1, 16, 12), upperP.material);
     jointBall.userData.paint = upperP;
 
     const mid = new THREE.Group(); // elbow / knee
     mid.position.y = -upperLen;
 
     const lowerP = mk();
-    const lower = new THREE.Mesh(new THREE.CylinderGeometry(r2, r2 * 0.88, lowerLen, 10), lowerP.material);
+    const lower = new THREE.Mesh(new THREE.CylinderGeometry(r2, r2 * 0.94, lowerLen, 16), lowerP.material);
     lower.userData.paint = lowerP;
     lower.position.y = -lowerLen / 2;
     mid.add(lower);
 
     // Elbow/knee ball fills the crease when the joint bends
-    const kneeBall = new THREE.Mesh(new THREE.SphereGeometry(r2 * 1.04, 10, 10), lowerP.material);
+    const kneeBall = new THREE.Mesh(new THREE.SphereGeometry(r2, 16, 12), lowerP.material);
     kneeBall.userData.paint = lowerP;
     mid.add(kneeBall);
 
     let cap = null;
     if (capType === 'hand') {
       const capP = mk();
-      cap = new THREE.Mesh(new THREE.SphereGeometry(width * 0.68, 12, 12), capP.material);
+      cap = new THREE.Mesh(new THREE.SphereGeometry(r2 * 0.94, 16, 12), capP.material);
       cap.userData.paint = capP;
-      cap.position.y = -lowerLen - width * 0.18;
+      cap.position.y = -lowerLen;
       mid.add(cap);
     } else if (capType === 'foot') {
       const capP = mk();
       // Rounded shoe: a squashed, stretched sphere
-      cap = new THREE.Mesh(new THREE.SphereGeometry(width * 0.62, 12, 10), capP.material);
+      cap = new THREE.Mesh(new THREE.SphereGeometry(width * 0.53, 16, 12), capP.material);
       cap.userData.paint = capP;
-      cap.scale.set(1, 0.55, 1.55);
+      cap.scale.set(1, 0.65, 1.3);
       cap.position.set(0, -lowerLen - width * 0.12, width * 0.28);
       mid.add(cap);
     }
@@ -5700,6 +5737,16 @@ class GameEngine {
 
     window.addEventListener('keydown', (e) => {
       if (this.gameState !== 'playing' || e.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
+      if (e.key.toLowerCase() === 'f' && !e.repeat && this._canPaint()) {
+        e.preventDefault();
+        if (this.onPaintModeToggle) this.onPaintModeToggle();
+        return;
+      }
+      if (e.key === ' ' && this.paintMode) {
+        e.preventDefault();
+        this._sampleHeld = true;
+        return;
+      }
       this.keys[e.key.toLowerCase()] = true;
       // Stop space/arrows from scrolling the page while playing
       if (this.gameState === 'playing' && (e.key === ' ' || e.key.startsWith('Arrow'))) {
@@ -5711,13 +5758,11 @@ class GameEngine {
         '6': 'sit', '7': 'ball', '8': 'star', '9': 'fold', '0': 'lie'
       };
       if (poseKeys[e.key]) this.setPose(poseKeys[e.key]);
-      // F toggles the color eyedropper (Hider only)
-      if (e.key.toLowerCase() === 'f' && this._canPaint()) {
-        const on = this.toggleEyedropper();
-        if (this.onEyedropperToggle) this.onEyedropperToggle(on);
-      }
     }, { signal });
-    window.addEventListener('keyup', (e) => { this.keys[e.key.toLowerCase()] = false; }, { signal });
+    window.addEventListener('keyup', (e) => {
+      this.keys[e.key.toLowerCase()] = false;
+      if (e.key === ' ') this._sampleHeld = false;
+    }, { signal });
     window.addEventListener('focusin', (e) => {
       if (e.target?.closest?.('input, textarea, select, [contenteditable="true"]')) this.keys = {};
     }, { signal });
@@ -5726,6 +5771,7 @@ class GameEngine {
       this.setMoveInput(0, 0);
       this._jumpHeld = false;
       this.jumpRequested = false;
+      this._sampleHeld = false;
       if (this.moveVel) this.moveVel.set(0, 0);
     }, { signal });
 
@@ -5735,11 +5781,15 @@ class GameEngine {
     let lastX = 0, lastY = 0, downX = 0, downY = 0, moved = false;
 
     const start = (x, y, isTouchInput = false) => {
-      // On a phone your own body fills much of the screen, so auto-painting
-      // whatever you drag over made looking around nearly impossible. Touch
-      // players paint only after switching paint mode on; mouse is unchanged.
+      // Paint explicitly on either device, so dragging your own silhouette
+      // while looking around never changes its camouflage by accident.
       dragTouch = isTouchInput;
-      const paintAllowed = this._canPaint() && (!isTouchInput || this.paintMode);
+      if (this._canPaint() && (this.eyedropperMode || this._sampleHeld)) {
+        this._suckColor(x, y);
+        mode = null;
+        return;
+      }
+      const paintAllowed = this._canPaint() && this.paintMode;
       if (paintAllowed && this._hitCharacter(x, y)) {
         mode = 'paint';
         this.beginStroke();
@@ -5780,7 +5830,9 @@ class GameEngine {
       this._camDragging = false;
     };
 
-    cv.addEventListener('mousedown', (e) => start(e.clientX, e.clientY), { signal });
+    cv.addEventListener('mousedown', (e) => {
+      if (e.button === 0) start(e.clientX, e.clientY);
+    }, { signal });
     window.addEventListener('mousemove', (e) => move(e.clientX, e.clientY), { signal });
     window.addEventListener('mouseup', (e) => end(e.clientX, e.clientY), { signal });
 
@@ -5853,7 +5905,7 @@ class GameEngine {
   // Hiders can always paint; seekers only while waiting out the hide phase
   _canPaint() {
     if (this.gameState !== 'playing') return false;
-    return this.isHider || this.getPhase().phase === 'hide';
+    return this.lobbyMode || this.isHider || this.getPhase().phase === 'hide';
   }
 
   // Start a fresh brush stroke (called on pointer-down) so the next paint
@@ -6149,6 +6201,11 @@ class GameEngine {
   // Hold state for the mobile jump/climb button (held = keep climbing)
   setJumpHeld(v) { this._jumpHeld = v; if (v) this.jumpRequested = true; }
   rotateCamera(delta) { this.camAngle += delta; }
+  rotateBody(delta) {
+    if (!this.character || this._wallStuck) return;
+    this.charHeading = (this.charHeading || 0) + delta;
+    this.character.rotation.y = this.charHeading;
+  }
   zoomCamera(delta) { this.camDist = Math.max(5, Math.min(26, this.camDist + delta)); }
   // Seeker fires straight ahead (screen centre) — for a mobile shoot button
   shootCenter() {
@@ -6240,7 +6297,6 @@ class GameEngine {
       if (!p) return;
       p.ctx.fillStyle = c;
       p.ctx.fillRect(0, 0, p.canvas.width, p.canvas.height);
-      if (m === this.headMesh) this._drawFace(p);
       p.texture.needsUpdate = true;
     });
     if (this.onPaintStroke) this.onPaintStroke({ fill: true, c });
@@ -6251,7 +6307,6 @@ class GameEngine {
       const p = m.userData.paint;
       p.ctx.fillStyle = '#ffffff';
       p.ctx.fillRect(0, 0, p.canvas.width, p.canvas.height);
-      if (m === this.headMesh) this._drawFace(p);
       p.texture.needsUpdate = true;
     });
     if (this.onPaintStroke) this.onPaintStroke({ clear: true });
@@ -6540,7 +6595,6 @@ class GameEngine {
       const p = m.userData.paint;
       if (!p) return;
       fn(p);
-      if (m === rp.rig.headMesh) this._drawFace(p);
       p.texture.needsUpdate = true;
     };
     if (stroke.fill) {
@@ -6650,7 +6704,8 @@ class GameEngine {
     const lL = r.legL, lR = r.legR; // { pivot: hip, mid: knee }
 
     // Reset every joint to a neutral baseline first
-    c.rotation.set(0, 0, 0);
+    c.rotation.x = 0;
+    c.rotation.z = 0;
     c.position.y = 0;
     waist.rotation.set(0, 0, 0);
     neck.rotation.set(0, 0, 0);
@@ -6734,7 +6789,8 @@ class GameEngine {
   _updateMovement(dt) {
     // The monitoring host doesn't have a character on the stage to move
     if (this.spectator) return;
-    if (document.getElementById('questionModal')?.style.display === 'flex') {
+    if (this.paintMode || document.getElementById('questionModal')?.style.display === 'flex' ||
+        document.getElementById('poseWheel')?.style.display === 'block') {
       this.keys = {};
       this.moveInput = null;
     }
@@ -6752,6 +6808,10 @@ class GameEngine {
     // Q/E rotate the camera from the keyboard (no dragging needed)
     if (this.keys['q']) this.camAngle += dt * 1.7;
     if (this.keys['e']) this.camAngle -= dt * 1.7;
+    if (!mx && !mz) {
+      if (this.keys['z']) this.rotateBody(dt * 1.8);
+      if (this.keys['x']) this.rotateBody(-dt * 1.8);
+    }
 
     // --- Velocity-based movement: quick response, short glide ---
     if (!this.moveVel) this.moveVel = new THREE.Vector2(0, 0);
@@ -7204,7 +7264,7 @@ class GameEngine {
     const cp = Math.cos(this.camPitch);
     const desired = new THREE.Vector3(
       t.x + Math.sin(this.camAngle) * cp * d,
-      t.y + 3 + Math.sin(this.camPitch) * d,
+      t.y + 1.9 + Math.sin(this.camPitch) * d,
       t.z + Math.cos(this.camAngle) * cp * d
     );
 
@@ -7243,8 +7303,9 @@ class GameEngine {
     // Smooth follow: glide toward the target, but snap on big jumps (teleports).
     // Pulling in off a wall snaps too — lerping there lets you see through it
     // for a few frames, which is the artefact we're removing.
-    if (this.camera.position.distanceTo(desired) > 12 || blocked !== null || conePushed) {
+    if (!this._cameraReady || this.camera.position.distanceTo(desired) > 12 || blocked !== null || conePushed) {
       this.camera.position.copy(desired);
+      this._cameraReady = true;
     } else {
       this.camera.position.lerp(desired, 0.25);
     }
