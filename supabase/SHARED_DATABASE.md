@@ -29,12 +29,19 @@ Apps using this project's Supabase Auth share user accounts and credentials.
 They still have separate browser sessions on different website origins.
 Apps with their own custom account tables do not automatically share logins.
 
-At cutover, email signup is enabled and email confirmation is required. Custom
-SMTP is not configured. Supabase's default mail service limits recipients to
-organization members, so general teacher signup needs custom SMTP before it
-can be treated as ready. Do not disable confirmation for the shared project
-without the owner's decision: that changes account verification for every app
-using this Auth service.
+Email signup is enabled and email confirmation is required. On 2026-10-16 the
+owner configured Brevo custom SMTP in the shared project's Auth dashboard:
+`smtp-relay.brevo.com`, port `587`, sender name `Classroom Games`. A fresh page
+load confirmed that the settings and an encrypted password were saved. The
+SMTP key stays in Supabase and must never be copied into this repository.
+An actual signup and email delivery test is still pending; saving configuration
+alone does not prove successful delivery. The verified sender currently uses
+a Gmail address; Brevo may replace its sender domain for delivery. A custom
+authenticated sender domain can be configured later for consistent branding.
+
+Do not disable confirmation for the shared project without the owner's
+decision: that changes account verification for every app using this Auth
+service. The owner explicitly chose SMTP with email verification.
 
 ## Deferred migration
 
