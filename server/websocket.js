@@ -301,21 +301,20 @@ async function handleQuestionAnswered(data, playerId, roomId, gameRooms) {
   const player = room.players.get(playerId);
   if (!player) return;
   if (typeof data.questionId !== 'string' || !data.questionId) return;
-  player.answeredQuestions ||= new Set();
-  if (player.answeredQuestions.has(data.questionId)) return;
-  player.answeredQuestions.add(data.questionId);
+  if (typeof data.attemptId !== 'string' || !data.attemptId || data.attemptId.length > 100) return;
+  player.answeredAttempts ||= new Set();
+  if (player.answerPending || player.answeredAttempts.has(data.attemptId)) return;
+  player.answerPending = true;
   let isCorrect;
   try {
     isCorrect = await questionStore.validateAnswer(
       data.questionId, data.userAnswer, room.settings?.questionSetId || null);
-  } catch (error) {
-    player.answeredQuestions.delete(data.questionId);
-    throw error;
+  } finally {
+    player.answerPending = false;
   }
-  if (isCorrect === null) {
-    player.answeredQuestions.delete(data.questionId);
-    return;
-  }
+  if (isCorrect === null || room.players.get(playerId) !== player) return;
+  player.answeredAttempts.add(data.attemptId);
+  if (player.answeredAttempts.size > 128) player.answeredAttempts.delete(player.answeredAttempts.values().next().value);
   player.score = Math.max(0, (player.score || 0) + (isCorrect ? 10 : -5));
   const msg = JSON.stringify({
     type: 'answer_result',

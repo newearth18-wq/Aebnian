@@ -19,9 +19,9 @@ router.get('/', async (req, res) => {
 
 router.post('/:id/validate', async (req, res) => {
   try {
-    const isCorrect = await questions.validateAnswer(req.params.id, req.body.userAnswer);
-    if (isCorrect === null) return res.status(404).json({ error: 'Question not found' });
-    res.json({ isCorrect });
+    const feedback = await questions.answerFeedback(req.params.id, req.body.userAnswer);
+    if (feedback === null) return res.status(404).json({ error: 'Question not found' });
+    res.set('Cache-Control', 'no-store').json(feedback);
   } catch (error) { fail(res, error); }
 });
 

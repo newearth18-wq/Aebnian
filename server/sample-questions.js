@@ -26,4 +26,12 @@ function validate(questionId, answer) {
   return String(answer) === `${questionId}:${sample[index][2]}`;
 }
 
-module.exports = { getQuestions, validate };
+function feedback(questionId, answer) {
+  const isCorrect = validate(questionId, answer);
+  if (isCorrect === null) return null;
+  const index = Number(questionId.replace('demo-', '')) - 1;
+  if (!sample[index][1].some((_, choice) => answer === `${questionId}:${choice}`)) return null;
+  return { isCorrect, correctAnswer: sample[index][1][sample[index][2]], explanation: '' };
+}
+
+module.exports = { getQuestions, validate, feedback };

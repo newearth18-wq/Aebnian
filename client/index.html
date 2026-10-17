@@ -218,7 +218,7 @@
 
         <!-- Pose choices (right-click, R or P, Hider only) -->
         <div id="poseWheel" style="display: none;">
-          <div class="pose-wheel-center">เลือกท่าหลบซ่อน</div>
+          <div class="pose-wheel-center">เลือกท่าทาง</div>
         </div>
 
         <!-- HUD overlays (over the 3D canvas) -->
@@ -311,6 +311,7 @@
         </div>
 
         <button id="resetCameraBtn" class="camera-reset" type="button">◎ จัดกล้อง <span class="hud-key">C</span></button>
+        <button id="poseBtn" class="pose-toggle" type="button" aria-controls="poseWheel" aria-expanded="false">🧍 ท่าทาง <span class="hud-key">R</span></button>
 
         <!-- Red edge glow that swells as a seeker closes in (hiders only) -->
         <div id="dangerVignette"></div>
@@ -345,6 +346,7 @@
                touch so swiping to look around doesn't smear paint on yourself -->
           <div id="mobLeftButtons">
             <button id="mobQuestion" class="mob-btn mob-quiz">❓<span>คำถาม</span></button>
+            <button id="mobPose" type="button" class="mob-btn mob-pose" aria-controls="poseWheel" aria-expanded="false">🧍<span>ท่าทาง</span></button>
             <button id="mobPaint" class="mob-btn mob-paint">🖌️<span>ทาสี</span></button>
             <button id="mobCamouflage" class="mob-btn mob-paint">✨<span>พรางสี</span></button>
             <button id="mobWhistle" class="mob-btn mob-paint">🎵<span>ส่งเสียง</span></button>
@@ -377,6 +379,7 @@
             <div id="questionContent"></div>
           </div>
           <div class="modal-footer">
+            <button id="closeQuestionBtn" type="button" class="btn">กลับเข้าเกม</button>
             <button id="submitAnswerBtn" class="btn btn-primary">ส่งคำตอบ</button>
           </div>
         </div>

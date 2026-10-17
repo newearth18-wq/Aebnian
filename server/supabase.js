@@ -81,4 +81,17 @@ async function validateAnswer(questionId, answer, setId = null) {
   return response.json();
 }
 
-module.exports = { listSets, listQuestions, validateAnswer, verifyTeacherPack };
+async function answerFeedback(questionId, answer, setId = null) {
+  if (String(questionId).startsWith('demo-'))
+    return setId && setId !== 'demo' ? null : sample.feedback(questionId, answer);
+  if (!isUuid(questionId) || (setId && !isUuid(setId))) return null;
+  const response = await fetch(new URL('/rest/v1/rpc/aeb_published_quiz_feedback', baseUrl), {
+    method: 'POST',
+    headers: { apikey: key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_question_id: questionId, p_choice: String(answer), p_set_id: setId })
+  });
+  if (!response.ok) throw new Error(`Question database returned ${response.status}`);
+  return response.json();
+}
+
+module.exports = { listSets, listQuestions, validateAnswer, answerFeedback, verifyTeacherPack };

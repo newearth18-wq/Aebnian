@@ -1402,6 +1402,13 @@ body.touch-device .tip-hint { display: none; }
   color: white; background: #14202bd9; cursor: pointer;
 }
 body.touch-device .camera-reset { display: none; }
+.pose-toggle {
+  position: absolute; right: 200px; bottom: 16px; z-index: 42;
+  padding: 10px 14px; border: 1px solid #ffffff80; border-radius: 12px;
+  color: white; background: #45347be6; cursor: pointer;
+}
+body.touch-device .pose-toggle { display: none; }
+.mob-pose { background: #574493d9; }
 
 /* ===== Mobile touch controls ===== */
 #mobileControls {
@@ -1965,7 +1972,7 @@ body.touch-device #blendMeter { top: 142px; right: 12px; left: auto; }
   /* Stack the quiz/paint pair sideways instead of down the screen — stacked,
      they ran into the joystick zone on a screen this short */
   body.touch-device #mobLeftButtons {
-    grid-template-columns: repeat(4, 54px);
+    grid-template-columns: repeat(5, 54px);
     top: calc(146px + env(safe-area-inset-top));
   }
   body.touch-device #mobLeftButtons .mob-btn { width: 54px; height: 54px; font-size: 19px; }
@@ -2070,6 +2077,13 @@ body.touch-device #blendMeter { top: 142px; right: 12px; left: auto; }
 .modal-body {
   padding: 20px;
 }
+.answer-feedback { margin-top: 16px; padding: 14px; border-radius: 12px; background: #fff1d4; color: #633e10; }
+.answer-feedback.correct { background: #def5e7; color: #155c36; }
+.answer-feedback.incorrect { background: #ffebe7; color: #872f23; }
+.answer-feedback p { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+#questionModal .modal-content { max-height: 90dvh; display: flex; flex-direction: column; }
+#questionModal .modal-body { overflow-y: auto; }
+#questionModal .modal-footer { flex-shrink: 0; display: flex; gap: 10px; justify-content: flex-end; }
 
 .modal-footer {
   padding: 20px;

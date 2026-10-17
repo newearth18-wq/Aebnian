@@ -59,6 +59,35 @@ function engine() {
   return { game, forward, window, document, canvas, controlKey: context.controlKey };
 }
 
+test('walking stands up and exits a chair below its backrest without jumping', () => {
+  const { game } = engine();
+  game._blocked = Object.getPrototypeOf(game)._blocked.bind(game);
+  game.obstacleBoxes = [{ minX: -1, maxX: 1, minZ: -1, maxZ: 1, top: 2.5, obj: {} }];
+  game._supportHeight = (x, z) => Math.abs(x) < 1 && Math.abs(z) < 1 ? .8 : 0;
+  game._applyPose = () => {};
+  game.currentPose = 'sit'; game.jumpY = .8;
+  game.keys.w = true;
+  for (let i = 0; i < 90; i++) game._updateMovement(1 / 60);
+  assert.equal(game.currentPose, 'stand');
+  assert.ok(game.character.position.z < -7, 'must walk off the seat');
+  assert.equal(game.jumpY, 0, 'must land on the floor');
+});
+
+test('chair escape allows only outward movement and does not bypass another prop or a wall', () => {
+  const { game } = engine();
+  const blocked = Object.getPrototypeOf(game)._blocked.bind(game);
+  const chair = { minX: -1, maxX: 1, minZ: -1, maxZ: 1, top: 2.5, obj: {} };
+  game.obstacleBoxes = [chair];
+  assert.equal(blocked(.9, 0, .8, .8, 0), false);
+  assert.equal(blocked(.7, 0, .8, .8, 0), true);
+  assert.equal(blocked(1.3, 0, 0, 1.5, 0), true, 'cannot enter a chair from outside');
+  game.wallBoxes = [{ minX: .85, maxX: 1, minZ: -1, maxZ: 1, top: 5 }];
+  assert.equal(blocked(.9, 0, .8, .8, 0), true);
+  game.wallBoxes = [];
+  game.obstacleBoxes.push({ ...chair, minX: .85, maxX: 2 });
+  assert.equal(blocked(.5, 0, .8, .4, 0), true, 'another prop still blocks entry');
+});
+
 test('keyboard and joystick match screen forward/right at eight camera bearings', () => {
   for (let i = 0; i < 8; i++) for (const joystick of [false, true]) {
     const angle = i * Math.PI / 4;

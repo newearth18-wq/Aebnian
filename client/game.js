@@ -6877,6 +6877,9 @@ class GameEngine {
     // the air if you climbed there), back flat against the surface. Great for
     // hiding flush on a wall. Jump (or leaving the flat pose) drops you off.
     const jumpHeld = this.keys[' '] || this.keys['space'] || this.jumpRequested || this._jumpHeld;
+    if ((mx || mz || jumpHeld) && ['sit', 'crouch', 'ball', 'lie', 'kneel'].includes(this.currentPose)) {
+      this.setPose('stand');
+    }
     let clingWall = this.currentPose === 'flat'
       ? this._adjacentWall(this.character.position.x, this.character.position.z, this.jumpY)
       : null;
@@ -6907,13 +6910,13 @@ class GameEngine {
       const px = this.character.position.x;
       const pz = this.character.position.z;
       const fy = this.jumpY;
-      if (!this._blocked(px + stepX, pz + stepZ, fy)) {
+      if (!this._blocked(px + stepX, pz + stepZ, fy, px, pz)) {
         this.character.position.x = px + stepX;
         this.character.position.z = pz + stepZ;
-      } else if (!this._blocked(px + stepX, pz, fy)) {
+      } else if (!this._blocked(px + stepX, pz, fy, px, pz)) {
         this.character.position.x = px + stepX;
         hitWall = true;
-      } else if (!this._blocked(px, pz + stepZ, fy)) {
+      } else if (!this._blocked(px, pz + stepZ, fy, px, pz)) {
         this.character.position.z = pz + stepZ;
         hitWall = true;
       } else {
@@ -7201,12 +7204,24 @@ class GameEngine {
   // Blocked at (x, z) for a body whose feet are at height feetY? A box only
   // blocks if its top is above the feet (with a small step-up tolerance),
   // so once you've climbed above a box you can walk onto its top.
-  _blocked(x, z, feetY) {
+  _blocked(x, z, feetY, fromX, fromZ) {
     const r = 0.4; // player half-width — smaller so you can tuck up close to props
     const fy = feetY || 0;
     for (const b of this._solidBoxes()) {
       if (x > b.minX - r && x < b.maxX + r && z > b.minZ - r && z < b.maxZ + r) {
-        if ((b.top || 99) - fy > 0.35) return true; // ledges ≤0.35 are step-overs
+        if ((b.top || 99) - fy <= 0.35) continue;
+        // A seated player can land below a chair's backrest inside its AABB.
+        // Permit movement out of an existing prop overlap, never entry from
+        // outside or movement deeper through the prop. Walls stay solid.
+        if (b.obj && Number.isFinite(fromX) && Number.isFinite(fromZ) &&
+            fromX > b.minX - r && fromX < b.maxX + r &&
+            fromZ > b.minZ - r && fromZ < b.maxZ + r) {
+          const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
+          const dx = Math.abs(x - cx) - Math.abs(fromX - cx);
+          const dz = Math.abs(z - cz) - Math.abs(fromZ - cz);
+          if (dx >= -1e-8 && dz >= -1e-8 && dx + dz > 1e-8) continue;
+        }
+        return true;
       }
     }
     return false;

@@ -71,6 +71,14 @@ ownership and question counts before changing or retiring the old project.
 
 ## Verification performed
 
+`quiz-feedback.sql` adds the published-question feedback RPC used after an
+answer is submitted. It returns correctness, answer text and the teacher's
+explanation for a valid choice only. Drafts, missing questions and mismatched
+pack IDs return null. Direct answer-column access remains revoked. The hosted
+function was applied and all eight transactional checks passed; test rows were
+rolled back. Repeat answers use distinct attempt IDs for scoring, while a
+duplicate delivery of the same attempt receives no second award.
+
 Transactional hosted database checks passed for saving a pack and questions,
 teacher ownership isolation (including rejected cross-account edits), draft
 privacy, hidden answer columns, and correct/wrong/cross-pack answer checks.

@@ -772,6 +772,8 @@ function handleStartGame() {
 // new engine can grab its own WebGL context. Reusing the same canvas after
 // forceContextLoss() often left the map painted black with red streaks.
 function disposePreviousEngine() {
+  questionManager.clear();
+  closePoseWheel();
   if (gameEngine && gameEngine.dispose) {
     try { gameEngine.dispose(); } catch (e) { console.warn(e); }
   }
@@ -1844,6 +1846,8 @@ async function loadGameQuestions() {
 
 // Show a random question when the player asks for one
 function askQuestion() {
+  if (!gameEngine || gameEngine.gameState !== 'playing' || questionManager.questionModal.style.display === 'flex') return;
+  closePoseWheel();
   if (loadedQuestions && loadedQuestions.length > 0) {
     questionManager.displayRandomQuestion(loadedQuestions);
   } else {
@@ -1852,11 +1856,12 @@ function askQuestion() {
 }
 
 async function handleSubmitAnswer() {
-  const isCorrect = await questionManager.validateAnswer();
-  if (isCorrect === null) return;
+  const engine = gameEngine;
   const answeredQuestion = questionManager.currentQuestion;
   const userAnswer = questionManager.getSelectedAnswer();
-  loadedQuestions = loadedQuestions.filter(question => question.id !== answeredQuestion.id);
+  const result = await questionManager.validateAnswer();
+  if (result === null || !engine || engine !== gameEngine || engine.gameState !== 'playing') return;
+  const { isCorrect } = result;
 
   if (isCorrect) {
     gameEngine.score += 10;
@@ -1884,12 +1889,17 @@ async function handleSubmitAnswer() {
   }
 
   scoreDisplay.textContent = gameEngine.score;
-  questionManager.hideModal();
+  questionManager.showFeedback(result, () => {
+    if (gameEngine === engine && engine.gameState === 'playing') {
+      questionManager.displayRandomQuestion(loadedQuestions);
+    } else questionManager.clear();
+  });
 
   wsClient.send({
     type: 'question_answered',
     roomId: currentGame.roomId,
     questionId: answeredQuestion.id,
+    attemptId: crypto.randomUUID(),
     userAnswer
   });
 }
@@ -1900,6 +1910,8 @@ function handleLeaveRoom() {
 }
 
 function leaveRoom() {
+  questionManager.clear();
+  closePoseWheel();
   clearSession();   // an intentional leave shouldn't auto-rejoin on next load
   if (typeof soundFX !== 'undefined') soundFX.stopMusic();
   if (currentGame.timerInterval) {
@@ -1949,6 +1961,8 @@ function computeRoundScores() {
 // Between rounds: show the standings, then the host asks the server to rotate
 // roles and kick off the next one.
 function endRound() {
+  questionManager.clear();
+  closePoseWheel();
   if (currentGame.timerInterval) clearInterval(currentGame.timerInterval);
   if (typeof soundFX !== 'undefined') soundFX.stopMusic();
   const scores = computeRoundScores();
@@ -2606,8 +2620,10 @@ const POSE_WHEEL_ITEMS = [
 // Open/close helpers — freeze walking while the wheel is up so a stray
 // joystick touch doesn't drag the character around behind the menu
 function openPoseWheel() {
+  if (!gameEngine || gameEngine.gameState !== 'playing' || questionManager.questionModal.style.display === 'flex') return;
   setPaintMode(false);
   poseWheel.style.display = 'block';
+  ['poseBtn', 'mobPose'].forEach(id => document.getElementById(id)?.setAttribute('aria-expanded', 'true'));
   document.getElementById('poseBackdrop').style.display = 'block';
   const mc = document.getElementById('mobileControls');
   mc.classList.add('posing'); // CSS disables the joystick zone
@@ -2620,7 +2636,9 @@ function openPoseWheel() {
 }
 function closePoseWheel() {
   poseWheel.style.display = 'none';
-  document.getElementById('poseBackdrop').style.display = 'none';
+  const backdrop = document.getElementById('poseBackdrop');
+  if (backdrop) backdrop.style.display = 'none';
+  ['poseBtn', 'mobPose'].forEach(id => document.getElementById(id)?.setAttribute('aria-expanded', 'false'));
   document.getElementById('mobileControls').classList.remove('posing');
 }
 function togglePoseWheel() {
@@ -2629,6 +2647,7 @@ function togglePoseWheel() {
 }
 
 function setupPoseWheel() {
+  ['poseBtn', 'mobPose'].forEach(id => document.getElementById(id)?.addEventListener('click', togglePoseWheel));
   // Full-screen backdrop that sits just under the wheel and closes it on tap
   const backdrop = document.createElement('div');
   backdrop.id = 'poseBackdrop';
@@ -2687,8 +2706,6 @@ function setupPoseWheel() {
   if (container) container.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     if (!gameEngine || gameEngine.gameState !== 'playing') return;
-    // Anyone can strike a pose in the lobby; in-match it's a hider tool
-    if (!gameEngine.lobbyMode && !gameEngine.isHider) return;
     togglePoseWheel();
   });
 
@@ -2697,8 +2714,7 @@ function setupPoseWheel() {
     // R matches the reference game's pose key; keep P for existing players.
     if ((gameControlKey(e) === 'r' || gameControlKey(e) === 'p') && !e.repeat
         && !e.target?.closest?.('input, textarea, select, [contenteditable="true"]')
-        && gameEngine && gameEngine.gameState === 'playing'
-        && (gameEngine.lobbyMode || gameEngine.isHider)) {
+        && gameEngine && gameEngine.gameState === 'playing') {
       togglePoseWheel();
     }
   });
@@ -2719,6 +2735,7 @@ function generateRoomQr(roomId) {
 
 
 function showScreen(screenName) {
+  if (screenName !== 'game') { questionManager.clear(); closePoseWheel(); }
   document.querySelectorAll('.screen').forEach(screen => {
     screen.classList.remove('active');
   });
