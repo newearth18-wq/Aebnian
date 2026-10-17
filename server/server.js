@@ -15,6 +15,14 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// A fresh, public deployment identifier makes it possible to verify that the
+// game assets and running server belong to the release just published.
+app.get('/api/health', (_req, res) => {
+  res.set('Cache-Control', 'no-store').json({
+    status: 'ok', version: process.env.RENDER_GIT_COMMIT || 'local'
+  });
+});
+
 // Serve static files from client directory
 app.use(express.static(path.join(__dirname, '../client')));
 

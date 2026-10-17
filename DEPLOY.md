@@ -20,6 +20,8 @@ Blueprint ใน `render.yaml` มี service `aeb-nian` ที่รัน `ser
 
 หลัง deploy ตรวจว่า:
 
+- `GET /api/health` ตอบ `status: "ok"` และ `version` ตรงกับ commit ที่นำขึ้น Render จากนั้นตรวจ `GET /map-upgrades.js` ว่าตอบ 200 ด้วย เพื่อยืนยันว่าไฟล์ฉากขึ้นครบ
+
 1. `/api/questions/sets` มีชุดตัวอย่างและชุดที่ครูเผยแพร่
 2. `/admin` ให้ล็อกอินก่อนแก้ไขข้อสอบ
 3. นักเรียนสร้างห้อง เลือกชุดคำถาม และตอบแล้วคะแนนเพิ่ม
