@@ -56,8 +56,29 @@ function engine() {
     position: new Vector3(0, 4, 10),
     getWorldDirection: target => target.copy(forward), lookAt() {}
   };
-  return { game, forward, window, document, canvas, controlKey: context.controlKey };
+  return { game, forward, window, document, canvas, context, controlKey: context.controlKey };
 }
+
+test('raised platforms leave walking and camera space open underneath while their floor stays solid', () => {
+  const { game } = engine();
+  const blocked = Object.getPrototypeOf(game)._blocked.bind(game);
+  const floor = {minX:-3,maxX:3,minZ:-3,maxZ:3,bottom:3.4,top:3.6,obj:{}};
+  game.obstacleBoxes=[floor];
+  assert.equal(blocked(0,0,0),false);
+  assert.equal(blocked(0,0,1.2),true);
+  assert.equal(game._rayBox({x:0,y:2,z:6},{x:0,y:0,z:-1},floor,10),null);
+  assert.equal(game._rayBox({x:0,y:3.5,z:6},{x:0,y:0,z:-1},floor,10),3);
+});
+
+test('a model that finishes loading after changing maps releases its GPU resources without adding to the old scene', () => {
+  const { game, context } = engine();
+  let complete; let released=0;
+  context.THREE.GLTFLoader=class {load(url,callback){complete=callback;}};
+  game._loadModels({models:[{url:'model.glb'}]});
+  game._disposing=true;game.scene=null;
+  complete({scene:{traverse(fn){fn({geometry:{dispose(){released++;}},material:{map:{isTexture:true,dispose(){released++;}},dispose(){released++;}}});}}});
+  assert.equal(released,3);
+});
 
 test('walking stands up and exits a chair below its backrest without jumping', () => {
   const { game } = engine();

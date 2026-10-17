@@ -322,7 +322,7 @@ function setupEventListeners() {
   copyRoomCodeBtn.addEventListener('click', copyRoomCode);
   roleHiderBtn.addEventListener('click', () => setRole('hider'));
   roleSeekerBtn.addEventListener('click', () => setRole('seeker'));
-  mapSelect.addEventListener('change', () => { currentGame.mapId = mapSelect.value; });
+  mapSelect.addEventListener('change', () => { currentGame.mapId = mapSelect.value; updateMapDescription(); });
 
   // Host-only monitor mode: step out of the match, watch the whole class from
   // above with a live dashboard, and drop the cluttered player HUD entirely
@@ -2223,6 +2223,13 @@ function populateMapSelect() {
   });
   mapSelect.value = GAME_MAPS[currentGame.mapId] ? currentGame.mapId : DEFAULT_MAP_ID;
   currentGame.mapId = mapSelect.value;
+  updateMapDescription();
+}
+
+function updateMapDescription() {
+  const map = GAME_MAPS[mapSelect.value];
+  const description = document.getElementById('mapDescription');
+  if (description) description.textContent = map ? `${map.description || ''} — ${map.hidingTip || ''}` : '';
 }
 
 // ===== Paint System =====

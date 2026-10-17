@@ -2407,6 +2407,7 @@ class GameEngine {
     this.obstacles = [];
     const placeObject = (o) => {
       const mesh = this._makeObject({ ...o, x: o.x * S, z: o.z * S });
+      mesh.userData.authoredType = o.type;
       this._shade(mesh);
       this.scene.add(mesh);
       this.obstacles.push(mesh);
@@ -2449,6 +2450,7 @@ class GameEngine {
             z = -this.bound + 4 + layoutRandom() * (this.bound * 2 - 8);
             tries++;
           } while ((Math.hypot(x - spawn[0] * S, z - spawn[2] * S) < 7 ||
+            (typeof mapWalkwayContains === 'function' && mapWalkwayContains(map, x / S, z / S, 1 / S)) ||
             this.wallBoxes.some(b => x > b.minX - 1.5 && x < b.maxX + 1.5 && z > b.minZ - 1.5 && z < b.maxZ + 1.5)) && tries < 24);
           if (tries === 24) continue;
 
@@ -2769,6 +2771,19 @@ class GameEngine {
     map.models.forEach(m => {
       loader.load(m.url, (gltf) => {
         const obj = gltf.scene;
+        // A map can be changed while a GLB is still downloading. Release a
+        // late result instead of adding it to a disposed scene/context.
+        if (this._disposing || !this.scene) {
+          obj.traverse(mesh => {
+            mesh.geometry?.dispose();
+            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            materials.filter(Boolean).forEach(material => {
+              Object.values(material).forEach(value => { if (value?.isTexture) value.dispose(); });
+              material.dispose();
+            });
+          });
+          return;
+        }
 
         // Normalize height so any model fits the scene regardless of native units.
         // Static props (furniture, vehicles, statues) get a bigger boost so
@@ -2943,6 +2958,7 @@ class GameEngine {
 
   // Build a single stage object from a config entry
   _makeObject(o) {
+    if (o.type === 'mapfeature') return buildMapFeature(o);
     // Beef up structures the player asked for: taller and wider buildings,
     // trees and boulders so maps feel more substantial. Multiply the
     // relevant dims at the entry point so every downstream builder — and
@@ -5605,7 +5621,11 @@ class GameEngine {
     this.character.position.set(spawn[0] * S, spawn[1], spawn[2] * S);
     // Match the white mannequin's proportions on both teams.
     this.character.scale.setScalar(this.isHider ? PLAYER_SCALE.hider : PLAYER_SCALE.seeker);
-    this.charHeading = 0;
+    // Spawn at an entrance looking into the play area, rather than at the
+    // wall immediately behind it. Reset-camera keeps this same facing.
+    this.charHeading = map.spawnHeading !== undefined ? map.spawnHeading : 0;
+    this.character.rotation.y = this.charHeading;
+    this.camAngle = this.charHeading + Math.PI;
     this.scene.add(this.character);
 
     // Seekers carry a rainbow laser gun in the right hand
@@ -7090,6 +7110,15 @@ class GameEngine {
     this._spawnX = spawn[0] * S; this._spawnZ = spawn[2] * S;
     for (const o of this.obstacles) {
       if (o.userData.noHit) continue;               // decorative (bubbles etc.)
+      if (o.userData.collisionMeshes) {
+        o.updateWorldMatrix(true, true);
+        for (const mesh of o.userData.collisionMeshes) {
+          const b = new THREE.Box3().setFromObject(mesh);
+          this.obstacleBoxes.push({ minX:b.min.x, maxX:b.max.x, minZ:b.min.z, maxZ:b.max.z,
+            bottom:b.min.y, top:b.max.y, obj:mesh });
+        }
+        continue;
+      }
       const box = this._groundSliceBox(o);
       const added = this._addCollisionBox(box, o);
       if (!added) this._maybeCameraLandmark(box);
@@ -7208,6 +7237,7 @@ class GameEngine {
     const r = 0.4; // player half-width — smaller so you can tuck up close to props
     const fy = feetY || 0;
     for (const b of this._solidBoxes()) {
+      if (b.bottom !== undefined && b.bottom > fy + 2.7) continue;
       if (x > b.minX - r && x < b.maxX + r && z > b.minZ - r && z < b.maxZ + r) {
         if ((b.top || 99) - fy <= 0.35) continue;
         // A seated player can land below a chair's backrest inside its AABB.
@@ -7407,7 +7437,7 @@ class GameEngine {
   // Entry distance of a ray into an axis-aligned box (0..top), or null
   _rayBox(o, d, b, maxT) {
     let tmin = 0, tmax = maxT;
-    const lo = [b.minX, 0, b.minZ], hi = [b.maxX, b.top, b.maxZ];
+    const lo = [b.minX, b.bottom || 0, b.minZ], hi = [b.maxX, b.top, b.maxZ];
     const org = [o.x, o.y, o.z], dir = [d.x, d.y, d.z];
     for (let a = 0; a < 3; a++) {
       if (Math.abs(dir[a]) < 1e-6) {
