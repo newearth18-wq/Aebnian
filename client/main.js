@@ -1118,6 +1118,8 @@ function setupMobileHudToggles() {
   if (setupMobileHudToggles._done) return;
   setupMobileHudToggles._done = true;
   const paintBtn = document.getElementById('paintToggleBtn');
+  document.getElementById('resetCameraBtn').addEventListener('click', () => gameEngine?.resetCamera());
+  document.getElementById('mobCameraReset').addEventListener('click', () => gameEngine?.resetCamera());
   const lobbyBtn = document.getElementById('lobbyToggleBtn');
   const closeBothIfOutside = (target) => {
     if (!target.closest('#lobbyPanel, #lobbyToggleBtn')) {
@@ -1530,17 +1532,16 @@ function setupMobileControls() {
   mobileWired = true;
 
   // --- Virtual joystick ---
-  // Touch anywhere in the lower-left zone and the stick appears under your
-  // thumb (no need to hit the small circle). A dead zone + fast ramp means
-  // full speed without shoving the knob all the way to the rim.
+  // Tap the visible stick in a direction, or drag in the lower-left zone.
+  // Pointer capture keeps movement reliable when a thumb leaves the circle.
   const base = document.getElementById('joystick');
   const knob = document.getElementById('joystickKnob');
   const zone = document.getElementById('joyZone');
   // Travel radius follows the rendered size — tablets render a bigger stick
   // (see the min-width:760px rules), and a fixed 58px would leave the knob
   // stranded near the middle of it.
-  const radius = () => Math.max(40, base.offsetWidth / 2 - 14);
-  let touchId = null;
+  const radius = () => Math.max(28, (base.offsetWidth - knob.offsetWidth) / 2 - 6);
+  let pointerId = null;
   let originX = 0, originY = 0;
   const setKnob = (dx, dy) => {
     const R = radius();
@@ -1548,54 +1549,58 @@ function setupMobileControls() {
     const ang = Math.atan2(dy, dx);
     const kx = Math.cos(ang) * dist, ky = Math.sin(ang) * dist;
     knob.style.transform = `translate(${kx}px, ${ky}px)`;
-    // 10% dead zone, full speed from 75% extension
-    const norm = Math.min(1, Math.max(0, (dist / R - 0.1) / 0.65));
+    // Fine walking near the centre, full speed at the edge.
+    const norm = Math.pow(Math.min(1, Math.max(0, (dist / R - 0.12) / 0.88)), 1.35);
     if (gameEngine) gameEngine.setMoveInput(Math.cos(ang) * norm, Math.sin(ang) * norm);
   };
   const resetJoy = () => {
     knob.style.transform = 'translate(0,0)';
     if (gameEngine) gameEngine.setMoveInput(0, 0);
-    touchId = null;
+    pointerId = null;
   };
   const joyAt = (t) => {
     setKnob(t.clientX - originX, t.clientY - originY);
   };
-  // Reposition the stick under the first touch inside the zone
+  // Keep the base entirely inside the left-hand zone. The input origin must
+  // be its actual centre after clamping, not the finger's unclamped position.
   const summonJoy = (e) => {
-    if (touchId !== null) return;
-    const t = e.changedTouches[0];
-    touchId = t.identifier;
+    if (pointerId !== null || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    pointerId = e.pointerId;
     const pr = mc.getBoundingClientRect();
+    const zr = zone.getBoundingClientRect();
     const half = base.offsetWidth / 2;
-    const x = Math.max(half + 8, Math.min(pr.width - half - 8, t.clientX - pr.left));
-    const y = Math.max(half + 8, Math.min(pr.height - half - 8, t.clientY - pr.top));
-    base.style.left = (x - half) + 'px';
-    base.style.top = (y - half) + 'px';
+    const x = Math.max(zr.left + half + 8, Math.min(zr.right - half - 8, e.clientX));
+    const y = Math.max(zr.top + half + 8, Math.min(zr.bottom - half - 20, e.clientY));
+    base.style.left = (x - pr.left - half) + 'px';
+    base.style.top = (y - pr.top - half) + 'px';
     base.style.bottom = 'auto';
-    originX = t.clientX; originY = t.clientY;
-    setKnob(0, 0);
+    originX = x; originY = y;
+    zone.setPointerCapture(e.pointerId);
+    joyAt(e);
+    e.stopPropagation();
     e.preventDefault();
   };
-  zone.addEventListener('touchstart', summonJoy, { passive: false });
-  base.addEventListener('touchstart', (e) => {
-    if (touchId !== null) return;
-    const t = e.changedTouches[0];
-    touchId = t.identifier;
-    originX = t.clientX; originY = t.clientY;
-    setKnob(0, 0);
+  zone.addEventListener('pointerdown', summonJoy);
+  base.addEventListener('pointerdown', (e) => {
+    if (pointerId !== null || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    pointerId = e.pointerId;
+    const rect = base.getBoundingClientRect();
+    originX = rect.left + rect.width / 2; originY = rect.top + rect.height / 2;
+    base.setPointerCapture(e.pointerId);
+    joyAt(e);
+    e.stopPropagation();
     e.preventDefault();
-  }, { passive: false });
-  window.addEventListener('touchmove', (e) => {
-    if (touchId === null) return;
-    for (const t of e.changedTouches) if (t.identifier === touchId) { joyAt(t); e.preventDefault(); }
-  }, { passive: false });
-  window.addEventListener('touchend', (e) => {
-    for (const t of e.changedTouches) if (t.identifier === touchId) resetJoy();
   });
-  window.addEventListener('touchcancel', (e) => {
-    for (const t of e.changedTouches) if (t.identifier === touchId) resetJoy();
-  });
+  window.addEventListener('pointermove', (e) => {
+    if (e.pointerId === pointerId) { joyAt(e); e.preventDefault(); }
+  }, { passive: false });
+  const releaseJoy = e => { if (e.pointerId === pointerId) resetJoy(); };
+  window.addEventListener('pointerup', releaseJoy);
+  window.addEventListener('pointercancel', releaseJoy);
+  base.addEventListener('lostpointercapture', releaseJoy);
+  zone.addEventListener('lostpointercapture', releaseJoy);
   window.addEventListener('blur', resetJoy);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) resetJoy(); });
 
   // --- Jump / climb (hold to keep climbing a wall) ---
   const jumpBtn = document.getElementById('mobJump');
@@ -1648,7 +1653,9 @@ function setupMobileControls() {
       if (iv) return;
       let held = 0;
       iv = setInterval(() => {
-        if (!gameEngine) return;
+        if (!gameEngine || gameEngine.paintMode || gameEngine.gameState !== 'playing' ||
+            document.getElementById('questionModal')?.style.display === 'flex' ||
+            document.getElementById('poseWheel')?.style.display === 'block') { stop(); return; }
         held++;
         const speed = Math.min(0.035, 0.02 + held * 0.0005);
         gameEngine._camDragging = true;
@@ -1659,22 +1666,12 @@ function setupMobileControls() {
     btn.addEventListener('touchstart', start, { passive: false });
     btn.addEventListener('touchend', stop);
     btn.addEventListener('touchcancel', stop);
+    window.addEventListener('blur', stop);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
   };
   holdRotate('mobRotL', 1);
   holdRotate('mobRotR', -1);
 
-  // --- Hold-to-zoom (pinch on the canvas also works) ---
-  const holdZoom = (id, dir) => {
-    const btn = document.getElementById(id);
-    let iv = null;
-    const start = (e) => { e.preventDefault(); if (iv) return; iv = setInterval(() => { if (gameEngine) gameEngine.zoomCamera(dir * 0.3); }, 16); };
-    const stop = () => { if (iv) clearInterval(iv); iv = null; };
-    btn.addEventListener('touchstart', start, { passive: false });
-    btn.addEventListener('touchend', stop);
-    btn.addEventListener('touchcancel', stop);
-  };
-  holdZoom('mobZoomIn', -1);
-  holdZoom('mobZoomOut', 1);
 }
 
 // Read the game duration in seconds, honouring the custom option
@@ -2454,7 +2451,7 @@ function setupPaintEvents() {
   document.getElementById('mobCamouflage').addEventListener('pointerup', event => { event.preventDefault(); camouflageFromView(); });
   document.getElementById('mobWhistle').addEventListener('pointerup', event => { event.preventDefault(); sendWhistle(); });
   window.addEventListener('keydown', event => {
-    if (event.key.toLowerCase() !== 'v' || event.repeat ||
+    if (gameControlKey(event) !== 'v' || event.repeat ||
         /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return;
     sendWhistle();
   });
@@ -2698,7 +2695,7 @@ function setupPoseWheel() {
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { closePoseWheel(); setPaintMode(false); }
     // R matches the reference game's pose key; keep P for existing players.
-    if ((e.key.toLowerCase() === 'r' || e.key.toLowerCase() === 'p') && !e.repeat
+    if ((gameControlKey(e) === 'r' || gameControlKey(e) === 'p') && !e.repeat
         && !e.target?.closest?.('input, textarea, select, [contenteditable="true"]')
         && gameEngine && gameEngine.gameState === 'playing'
         && (gameEngine.lobbyMode || gameEngine.isHider)) {

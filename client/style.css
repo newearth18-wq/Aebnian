@@ -1393,7 +1393,15 @@ body.touch-device .tip-hint { display: none; }
 
 #gameCanvas {
   cursor: crosshair;
+  touch-action: none;
 }
+
+.camera-reset {
+  position: absolute; right: 16px; bottom: 16px; z-index: 42;
+  padding: 10px 14px; border: 1px solid #ffffff80; border-radius: 12px;
+  color: white; background: #14202bd9; cursor: pointer;
+}
+body.touch-device .camera-reset { display: none; }
 
 /* ===== Mobile touch controls ===== */
 #mobileControls {
@@ -1459,7 +1467,7 @@ body.touch-device .tip-hint { display: none; }
   pointer-events: none;
 }
 #mobButtons::before {
-  content: 'ปัดจอเพื่อหมุนกล้อง';
+  content: 'ปัดจอขวาเพื่อมอง · หุบนิ้วเพื่อซูม';
   position: absolute;
   right: 0;
   bottom: calc(100% + 6px);
@@ -1490,6 +1498,11 @@ body.touch-device .tip-hint { display: none; }
 .mob-btn span { font-size: 11px; font-weight: 600; margin-top: 2px; }
 .mob-btn:active { background: rgba(102, 126, 234, 0.7); }
 .mob-cam { width: 56px; height: 56px; font-size: 22px; background: rgba(0, 0, 0, 0.3); }
+#mobCameraReset {
+  grid-column: 1 / -1; width: 100%; height: 44px;
+  flex-direction: row; gap: 6px; border-radius: 14px; font-size: 22px;
+  background: rgba(20, 32, 43, 0.8);
+}
 .mob-action { background: rgba(231, 76, 60, 0.55); }
 
 /* Question + paint-mode buttons, stacked above the joystick on the left so

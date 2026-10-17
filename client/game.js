@@ -1,5 +1,13 @@
 // 3D Game Engine (Three.js) for MECCHA CHAMELEON
-// Controls: WASD/arrows to walk, drag mouse to look, click a body part to paint it.
+// Controls: WASD/arrows to walk, drag to look, C to centre, F to paint.
+
+// Physical keys also work while the keyboard is set to Thai.
+function gameControlKey(event) {
+  if (/^Key[A-Z]$/.test(event.code || '')) return event.code.slice(3).toLowerCase();
+  if (/^Digit[0-9]$/.test(event.code || '')) return event.code.slice(5);
+  if (event.code === 'Space') return ' ';
+  return (event.key || '').toLowerCase();
+}
 
 // Both teams use the same paintable mannequin silhouette.
 const PLAYER_SCALE = { hider: 1, seeker: 1 };
@@ -2102,8 +2110,8 @@ class GameEngine {
 
     // Camera orbit state
     this.camAngle = Math.PI;
-    this.camPitch = 0.16;
-    this.camDist = 7.5;
+    this.camPitch = 0.28;
+    this.camDist = 10;
 
     this._boundResize = () => this._onResize();
   }
@@ -5737,19 +5745,21 @@ class GameEngine {
 
     window.addEventListener('keydown', (e) => {
       if (this.gameState !== 'playing' || e.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
-      if (e.key.toLowerCase() === 'f' && !e.repeat && this._canPaint()) {
+      const key = gameControlKey(e);
+      if (key === 'c' && !e.repeat) { e.preventDefault(); this.resetCamera(); return; }
+      if (key === 'f' && !e.repeat && this._canPaint()) {
         e.preventDefault();
         if (this.onPaintModeToggle) this.onPaintModeToggle();
         return;
       }
-      if (e.key === ' ' && this.paintMode) {
+      if (key === ' ' && this.paintMode) {
         e.preventDefault();
         this._sampleHeld = true;
         return;
       }
-      this.keys[e.key.toLowerCase()] = true;
+      this.keys[key] = true;
       // Stop space/arrows from scrolling the page while playing
-      if (this.gameState === 'playing' && (e.key === ' ' || e.key.startsWith('Arrow'))) {
+      if (key === ' ' || key.startsWith('arrow')) {
         e.preventDefault();
       }
       // Number keys switch poses (posing to blend against walls)
@@ -5757,23 +5767,27 @@ class GameEngine {
         '1': 'stand', '2': 'spread', '3': 'armsUp', '4': 'crouch', '5': 'flat',
         '6': 'sit', '7': 'ball', '8': 'star', '9': 'fold', '0': 'lie'
       };
-      if (poseKeys[e.key]) this.setPose(poseKeys[e.key]);
+      if (poseKeys[key]) this.setPose(poseKeys[key]);
     }, { signal });
     window.addEventListener('keyup', (e) => {
-      this.keys[e.key.toLowerCase()] = false;
-      if (e.key === ' ') this._sampleHeld = false;
+      const key = gameControlKey(e);
+      this.keys[key] = false;
+      if (key === ' ') this._sampleHeld = false;
     }, { signal });
     window.addEventListener('focusin', (e) => {
       if (e.target?.closest?.('input, textarea, select, [contenteditable="true"]')) this.keys = {};
     }, { signal });
-    window.addEventListener('blur', () => {
+    const releaseControls = () => {
       this.keys = {};
       this.setMoveInput(0, 0);
       this._jumpHeld = false;
       this.jumpRequested = false;
       this._sampleHeld = false;
       if (this.moveVel) this.moveVel.set(0, 0);
-    }, { signal });
+      this._cancelPointer?.();
+    };
+    window.addEventListener('blur', releaseControls, { signal });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) releaseControls(); }, { signal });
 
     const cv = this.canvas;
     let mode = null; // 'paint' | 'camera'
@@ -5809,8 +5823,8 @@ class GameEngine {
       } else {
         // Keep the camera steady enough for small corrections on either device.
         const dx = x - lastX, dy = y - lastY;
-        this.camAngle -= dx * (dragTouch ? 0.006 : 0.005);
-        this.camPitch = Math.max(-0.1, Math.min(1.2, this.camPitch + dy * 0.003));
+        this.camAngle -= dx * 0.004;
+        this.camPitch = Math.max(0.08, Math.min(0.85, this.camPitch + dy * (dragTouch ? 0.0018 : 0.002)));
       }
       lastX = x; lastY = y;
     };
@@ -5842,6 +5856,10 @@ class GameEngine {
     // canvas finger drags the camera / paints; two canvas fingers pinch-zoom.
     let pinch = null;
     let camTouchId = null;
+    this._cancelPointer = () => {
+      mode = null; pinch = null; camTouchId = null;
+      this._camDragging = false;
+    };
     const dist2 = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
     cv.addEventListener('touchstart', (e) => {
       e.preventDefault(); // keep touch gestures in the game and avoid a second mouse click
@@ -6201,6 +6219,14 @@ class GameEngine {
   // Hold state for the mobile jump/climb button (held = keep climbing)
   setJumpHeld(v) { this._jumpHeld = v; if (v) this.jumpRequested = true; }
   rotateCamera(delta) { this.camAngle += delta; }
+  resetCamera() {
+    if (!this.character) return;
+    this._cancelPointer?.();
+    this.camAngle = (this.charHeading || 0) + Math.PI;
+    this.camPitch = 0.28;
+    this.camDist = 10;
+    this._cameraReady = false;
+  }
   rotateBody(delta) {
     if (!this.character || this._wallStuck) return;
     this.charHeading = (this.charHeading || 0) + delta;
@@ -6818,17 +6844,23 @@ class GameEngine {
     const MAX_SPEED = 7.5 * (this.speedMul || 1);
     let targetX = 0, targetZ = 0;
     if (mx || mz) {
-      // Input relative to camera facing
-      const ang = this.camAngle;
-      const sin = Math.sin(ang), cos = Math.cos(ang);
-      const wx = mx * cos - mz * sin;
-      const wz = mx * sin + mz * cos;
+      // Use the view actually on screen, including camera collision/follow.
+      // The old orbit-angle transform reversed forward/right at side views.
+      const forward = this._moveForward || (this._moveForward = new THREE.Vector3());
+      this.camera.getWorldDirection(forward);
+      let fx = forward.x, fz = forward.z;
+      const horizontal = Math.hypot(fx, fz);
+      if (horizontal > 0.001) { fx /= horizontal; fz /= horizontal; }
+      else { fx = -Math.sin(this.camAngle); fz = -Math.cos(this.camAngle); }
+      const wx = -fz * mx - fx * mz;
+      const wz = fx * mx - fz * mz;
       // Preserve the joystick's strength. Only diagonal input above 1 is normalized.
       const len = Math.max(1, Math.hypot(wx, wz));
       targetX = (wx / len) * MAX_SPEED;
       targetZ = (wz / len) * MAX_SPEED;
     }
-    const k = Math.min(1, dt * (mx || mz ? 20 : 28));
+    // Release means stop: precise hiding must not require counter-steering.
+    const k = mx || mz ? 1 - Math.exp(-dt * 30) : 1;
     this.moveVel.x += (targetX - this.moveVel.x) * k;
     this.moveVel.y += (targetZ - this.moveVel.y) * k;
     if (Math.hypot(this.moveVel.x, this.moveVel.y) < 0.05) this.moveVel.set(0, 0);
@@ -7239,7 +7271,7 @@ class GameEngine {
     return null;
   }
 
-  _updateCamera() {
+  _updateCamera(dt = 1 / 60) {
     const t = this.character.position;
     // 👩‍🏫 Teacher overview: pull right back over the whole stage
     if (this.overviewOn) {
@@ -7283,31 +7315,24 @@ class GameEngine {
       const full = dir.length();
       if (full > 0.001) {
         dir.divideScalar(full);
-        // Real clearance, not a token gap. Stopping 0.45 short of a tall prop
-        // still left it filling the bottom of the frame at that range — the
-        // camera was technically in front of the classroom's cubbies and you
-        // still saw nothing but cupboard. But the clearance floor must never
-        // push the camera PAST what blocked it: standing right against a tall
-        // wall-prop (a mansion fireplace) with the camera aimed into it, a flat
-        // 2.2 floor landed the lens inside the prop. Cap it just short of the
-        // hit so the camera stays in front, however close that has to be.
-        const stop = Math.min(blocked - 0.3, Math.max(2.2, blocked - 1.2));
+        // Pull in along the same viewing ray with a small clearance. Never
+        // let a hit close to the player produce a negative camera distance.
+        const stop = Math.max(0.08, blocked - 0.3);
         desired.copy(focus).addScaledVector(dir, stop);
-        // ...and climb over whatever it is. The harder we had to pull in, the
-        // higher the camera rides, so you end up looking down across the
-        // obstruction instead of pressed flat against its face.
-        desired.y += (1 - stop / full) * 5.5;
+        // Keep the viewing angle steady. Lifting the lens several metres
+        // at each nearby prop made walking alternate between overhead and
+        // eye-level views, and could put the camera behind its own focus.
       }
     }
 
     // Smooth follow: glide toward the target, but snap on big jumps (teleports).
     // Pulling in off a wall snaps too — lerping there lets you see through it
     // for a few frames, which is the artefact we're removing.
-    if (!this._cameraReady || this.camera.position.distanceTo(desired) > 12 || blocked !== null || conePushed) {
+    if (!this._cameraReady || this._camDragging || this.camera.position.distanceTo(desired) > 12 || blocked !== null || conePushed) {
       this.camera.position.copy(desired);
       this._cameraReady = true;
     } else {
-      this.camera.position.lerp(desired, 0.25);
+      this.camera.position.lerp(desired, 1 - Math.exp(-dt * 17));
     }
     this.camera.lookAt(t.x, t.y + 1.8, t.z);
 
@@ -7394,7 +7419,7 @@ class GameEngine {
       this._updateAbilities(dt);
       this._updateAudioCues(dt);
       this._updateMovement(dt);
-      this._updateCamera();
+      this._updateCamera(dt);
       this._updateRemotePlayers(dt);
       this._updateAimLock();
       const ph = this.getPhase();

@@ -310,6 +310,8 @@
           <div><span class="hud-key">🎵</span> ผู้ซ่อนส่งเสียงทุก 1 นาทีในช่วงหา</div>
         </div>
 
+        <button id="resetCameraBtn" class="camera-reset" type="button">◎ จัดกล้อง <span class="hud-key">C</span></button>
+
         <!-- Red edge glow that swells as a seeker closes in (hiders only) -->
         <div id="dangerVignette"></div>
 
@@ -330,12 +332,11 @@
         <div id="mobileControls" style="display: none;">
           <!-- Touch anywhere in the lower-left to summon the joystick there -->
           <div id="joyZone"></div>
-          <div id="joystick"><div id="joystickKnob"></div></div>
+          <div id="joystick" role="group" aria-label="จอยเดิน"><div id="joystickKnob"></div></div>
           <div id="mobButtons">
-            <button id="mobZoomOut" class="mob-btn mob-cam">－</button>
-            <button id="mobZoomIn" class="mob-btn mob-cam">＋</button>
-            <button id="mobRotL" class="mob-btn mob-cam">◀</button>
-            <button id="mobRotR" class="mob-btn mob-cam">▶</button>
+            <button id="mobCameraReset" type="button" class="mob-btn mob-cam mob-center">◎ <span>จัดกล้อง</span></button>
+            <button id="mobRotL" class="mob-btn mob-cam" aria-label="หมุนกล้องซ้าย">◀</button>
+            <button id="mobRotR" class="mob-btn mob-cam" aria-label="หมุนกล้องขวา">▶</button>
             <button id="mobJump" class="mob-btn">⤒<span>กระโดด/ปีน</span></button>
             <button id="mobAction" class="mob-btn mob-action">🔫<span>ยิง</span></button>
           </div>
