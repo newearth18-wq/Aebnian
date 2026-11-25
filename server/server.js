@@ -28,6 +28,7 @@ app.use(express.static(path.join(__dirname, '../client')));
 
 // Routes
 app.use('/api/questions', questionRoutes);
+app.use('/api/import', require('./quiz-import').router);
 
 // Serve main game page
 app.get('/', (req, res) => {

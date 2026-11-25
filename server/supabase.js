@@ -36,6 +36,15 @@ async function verifyTeacherPack(token, packId) {
   return Array.isArray(packs) && packs.length === 1;
 }
 
+async function verifyTeacher(token) {
+  if (!token || token.length > 16000) return false;
+  const response = await fetch(new URL('/auth/v1/user', baseUrl), {
+    headers: { apikey:key, Authorization:`Bearer ${token}` }, signal:AbortSignal.timeout(10000)
+  });
+  if (!response.ok) return false;
+  return !!(await response.json()).id;
+}
+
 async function listSets() {
   const rows = await select('aeb_quiz_packs', {
     select: 'id,title,description', is_published: 'eq.true', order: 'title.asc'
@@ -94,4 +103,4 @@ async function answerFeedback(questionId, answer, setId = null) {
   return response.json();
 }
 
-module.exports = { listSets, listQuestions, validateAnswer, answerFeedback, verifyTeacherPack };
+module.exports = { listSets, listQuestions, validateAnswer, answerFeedback, verifyTeacherPack, verifyTeacher };

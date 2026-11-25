@@ -1,13 +1,21 @@
+import {setupQuizImporter} from './quiz-import-ui.mjs';
+
 const $ = id => document.getElementById(id);
 const config = window.AEBNIAN_CONFIG;
 const db = window.supabase.createClient(config.supabaseUrl, config.supabaseKey);
 let packs = [];
 let editingId = null;
+let sessionOwner = null;
+let importer = null;
 
 function message(text) { $('message').textContent = text; }
 
 async function showSession() {
   const { data: { user }, error } = await db.auth.getUser();
+  if(sessionOwner !== (user?.id || null)) {
+    importer?.close();editingId=null;packs=[];$('packList').replaceChildren();editPack(null);
+    sessionOwner=user?.id||null;
+  }
   if (error && error.name !== 'AuthSessionMissingError') message(window.aebnianAuthError(error));
   $('authPanel').classList.toggle('hidden', !!user);
   $('editorPanel').classList.toggle('hidden', !user);
@@ -40,7 +48,7 @@ async function loadPacks(ownerId) {
   if (editingId) {
     const selected = packs.find(pack => pack.id === editingId);
     if (selected) editPack(selected);
-  } else if (!packs.length) editPack(null);
+  } else editPack(packs[0] || null);
 }
 
 function editPack(pack) {
@@ -62,7 +70,7 @@ function addQuestion(question = null) {
   row.className = 'questionRow';
   row.innerHTML = `
     <div class="questionHead"><b>คำถาม</b><button class="remove" type="button">ลบข้อนี้</button></div>
-    <input class="prompt" placeholder="พิมพ์คำถาม" maxlength="1000" required>
+    <textarea class="prompt" rows="2" placeholder="พิมพ์คำถาม" maxlength="1000" required></textarea>
     <div class="choices">
       <input class="choice" placeholder="ตัวเลือก A" required>
       <input class="choice" placeholder="ตัวเลือก B" required>
@@ -72,7 +80,7 @@ function addQuestion(question = null) {
     <label>คำตอบที่ถูก<select class="correct"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select></label>
     <input class="explanation" placeholder="คำอธิบายเฉลย (ถ้ามี)">`;
   row.querySelector('.prompt').value = question?.prompt || '';
-  row.querySelectorAll('.choice').forEach((input, index) => input.value = question?.options?.[index] || '');
+  row.querySelectorAll('.choice').forEach((input, index) => input.value = String(question?.options?.[index] || '').replace(/\r?\n/g,' '));
   row.querySelector('.correct').value = String(question?.correct_option ?? 0);
   row.querySelector('.explanation').value = question?.explanation || '';
   row.querySelector('.remove').onclick = () => row.remove();
@@ -83,6 +91,7 @@ async function savePack(event) {
   event.preventDefault();
   const rows = [...$('questionEditor').querySelectorAll('.questionRow')];
   if (!rows.length) return message('เพิ่มคำถามอย่างน้อย 1 ข้อ');
+  if (rows.length > 100) return message('บันทึกได้ไม่เกิน 100 ข้อต่อชุด กรุณาแยกเป็นชุดใหม่');
   const questions = rows.map((row, position) => ({
     prompt: row.querySelector('.prompt').value.trim(),
     options: [...row.querySelectorAll('.choice')].map(input => input.value.trim()),
@@ -162,5 +171,18 @@ $('logout').onclick = async () => { await db.auth.signOut(); editingId = null; a
 $('newPack').onclick = () => editPack(null);
 $('addQuestion').onclick = () => addQuestion();
 $('packForm').onsubmit = savePack;
+
+const filledRows = () => [...$('questionEditor').querySelectorAll('.questionRow')].filter(row =>
+  [...row.querySelectorAll('input, textarea')].some(input=>input.value.trim()));
+importer=setupQuizImporter({
+  getExistingCount:()=>filledRows().length,
+  getAccessToken:async()=>{const {data}=await db.auth.getSession();return data.session?.access_token;},
+  onApply:(questions,replace)=>{
+    if(replace)$('questionEditor').replaceChildren();
+    else [...$('questionEditor').querySelectorAll('.questionRow')].filter(row=>!filledRows().includes(row)).forEach(row=>row.remove());
+    questions.forEach(addQuestion);
+    message(`นำเข้า ${questions.length} ข้อเข้าฟอร์มแล้ว ตรวจชื่อชุดและกด “บันทึกชุดข้อสอบ” เพื่อเก็บลงบัญชีครู`);
+  }
+});
 db.auth.onAuthStateChange(() => { setTimeout(showSession, 0); });
 showSession();

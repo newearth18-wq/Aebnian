@@ -25,7 +25,7 @@ function page(authOverrides = {}) {
   };
   const context = vm.createContext({ window, document: { getElementById: get }, setTimeout });
   for (const name of ['auth-errors.js', 'admin.js'])
-    vm.runInContext(fs.readFileSync(path.join(__dirname, '../client', name), 'utf8'), context);
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../client', name), 'utf8').replace(/^import .*;$/m, 'const setupQuizImporter = () => ({close() {}});'), context);
   get('email').value = 'teacher@example.test';
   get('password').value = 'test-only-password';
   return { get, window };
